@@ -5,7 +5,7 @@ import { exportFileName } from '../src/export';
 import { createSchedule, normalizeLesson } from '../src/model';
 import { buildPdf, deflate, isPdf, readPdfInfoValue } from '../src/pdf';
 import { addTextChunk, isPng, readTextChunk } from '../src/png';
-import { EXPORT, layoutBoard } from '../src/render';
+import { EXPORT, EXPORT_WIDTH, layoutBoard } from '../src/render';
 
 // 1×1 transparent PNG.
 const TINY_PNG = Uint8Array.from(
@@ -90,8 +90,13 @@ describe('export layout', () => {
       expect(rect.x).toBeGreaterThanOrEqual(layout.grid.x);
       expect(rect.x + rect.w).toBeLessThanOrEqual(layout.grid.x + layout.grid.w);
     }
-    expect(layout.width).toBe(EXPORT.width);
-    expect(layout.height).toBe(EXPORT.headerH + 5 * EXPORT.rowH + EXPORT.footerH);
+    expect(layout.width).toBe(EXPORT_WIDTH);
+    expect(layout.height).toBe(EXPORT.headerH + 5 * EXPORT.rowH + EXPORT.bottomPad);
+  });
+
+  it('keeps hour cells square like the official timetable', () => {
+    const layout = layoutBoard(createSchedule());
+    expect(layout.hourX(9) - layout.hourX(8)).toBe(EXPORT.rowH);
   });
 
   it('builds safe file names', () => {

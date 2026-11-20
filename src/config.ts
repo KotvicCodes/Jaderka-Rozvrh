@@ -118,12 +118,3 @@ export const KNOWN_SPECS: readonly KnownSpec[] = [
   { id: 'Bc3RT1', name: 'Radiologická technika 1. kruh' },
   { id: 'Bc3VJZP1', name: 'Vyřazování jaderných zařízení z provozu 1. kruh' },
 ];
-
-/**
- * Watermark stamped on every downloaded PDF/PNG. Change these two values once
- * the final site name/address is decided.
- */
-export const WATERMARK = {
-  text: 'Jaderka Rozvrh',
-  url: 'kotviccodes.github.io/Jaderka-Rozvrh',
-} as const;

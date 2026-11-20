@@ -1,16 +1,23 @@
-import { DAYS, FIRST_HOUR, HOUR_COUNT, LAST_HOUR, WATERMARK, paletteColor } from './config';
+import { DAYS, FIRST_HOUR, HOUR_COUNT, LAST_HOUR, paletteColor } from './config';
 import { formatHour, layoutDay, type Lesson, type Schedule } from './model';
 
-/** Geometry of the exported image, in CSS pixels (scaled up when rasterising). */
+/**
+ * Geometry of the exported image, in CSS pixels (scaled up when rasterising).
+ * Hour cells are square (hourW = rowH), matching the official images.
+ */
 export const EXPORT = {
-  width: 1120,
   padX: 16,
-  labelW: 110,
+  labelW: 100,
+  hourW: 64,
+  /** Room right of 20:00 for its label. */
+  rightPad: 24,
   headerH: 40,
   rowH: 64,
   laneMinH: 32,
-  footerH: 34,
+  bottomPad: 12,
 } as const;
+
+export const EXPORT_WIDTH = EXPORT.padX + EXPORT.labelW + HOUR_COUNT * EXPORT.hourW + EXPORT.rightPad;
 
 export interface Rect {
   x: number;
@@ -31,7 +38,7 @@ export interface BoardLayout {
 /** Pure layout of the export image so it can be tested without a canvas. */
 export function layoutBoard(schedule: Schedule): BoardLayout {
   const gridX = EXPORT.padX + EXPORT.labelW;
-  const gridW = EXPORT.width - gridX - EXPORT.padX - 14;
+  const gridW = HOUR_COUNT * EXPORT.hourW;
   const hourX = (hour: number) => gridX + ((hour - FIRST_HOUR) / HOUR_COUNT) * gridW;
 
   const rows: BoardLayout['rows'] = [];
@@ -42,7 +49,7 @@ export function layoutBoard(schedule: Schedule): BoardLayout {
     const placed = layoutDay(schedule.lessons.filter((l) => l.day === day));
     const maxLanes = placed.reduce((m, p) => Math.max(m, p.lanes), 1);
     const rowH = Math.max(EXPORT.rowH, maxLanes * EXPORT.laneMinH);
-    rows.push({ day, x: EXPORT.padX, y, w: EXPORT.width - 2 * EXPORT.padX, h: rowH });
+    rows.push({ day, x: EXPORT.padX, y, w: EXPORT_WIDTH - EXPORT.padX - EXPORT.rightPad / 2, h: rowH });
     for (const p of placed) {
       const laneH = rowH / p.lanes;
       lessons.push({
@@ -60,8 +67,8 @@ export function layoutBoard(schedule: Schedule): BoardLayout {
   });
 
   return {
-    width: EXPORT.width,
-    height: y + EXPORT.footerH,
+    width: EXPORT_WIDTH,
+    height: y + EXPORT.bottomPad,
     grid: { x: gridX, y: EXPORT.headerH, w: gridW, h: y - EXPORT.headerH },
     rows,
     hourX,
@@ -104,28 +111,6 @@ function drawLesson(ctx: CanvasRenderingContext2D, lesson: Lesson, r: Rect, comp
   ctx.fillText(fitText(ctx, lesson.lecturer, r.w - roomW - 14), r.x + 5, metaY);
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, layout: BoardLayout): void {
-  ctx.save();
-  // Keep the header and footer readable: tile the mark over the grid only.
-  ctx.beginPath();
-  ctx.rect(layout.grid.x, layout.grid.y, layout.grid.w, layout.grid.h);
-  ctx.clip();
-  ctx.globalAlpha = 0.07;
-  ctx.fillStyle = '#0365a9';
-  ctx.font = `bold 26px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.translate(layout.width / 2, layout.height / 2);
-  ctx.rotate(-Math.PI / 12);
-  const stepX = 300;
-  const stepY = 90;
-  for (let y = -layout.height; y <= layout.height; y += stepY) {
-    const shift = (Math.round(y / stepY) % 2) * (stepX / 2);
-    for (let x = -layout.width; x <= layout.width; x += stepX) ctx.fillText(WATERMARK.text, x + shift, y);
-  }
-  ctx.restore();
-}
-
 /** Draws the schedule in the style of the official FJFI timetable. */
 export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, layout = layoutBoard(schedule)): void {
   const { grid } = layout;
@@ -137,7 +122,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.font = `bold 13px ${FONT}`;
-  ctx.fillText(fitText(ctx, schedule.specId, EXPORT.labelW - 8), EXPORT.padX, EXPORT.headerH / 2);
+  ctx.fillText(fitText(ctx, schedule.specId, EXPORT.labelW - 24), EXPORT.padX, EXPORT.headerH / 2);
   ctx.font = `12px ${FONT}`;
   ctx.textAlign = 'center';
   for (let hour = FIRST_HOUR; hour <= LAST_HOUR; hour++) ctx.fillText(formatHour(hour), layout.hourX(hour), EXPORT.headerH / 2);
@@ -157,7 +142,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
   }
   const bottom = Math.round(grid.y + grid.h) + 0.5;
   ctx.moveTo(EXPORT.padX, bottom);
-  ctx.lineTo(EXPORT.width - EXPORT.padX, bottom);
+  ctx.lineTo(EXPORT_WIDTH - EXPORT.rightPad / 2, bottom);
   ctx.stroke();
 
   // Day labels.
@@ -168,18 +153,6 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
 
   for (const { lesson, rect, compact } of layout.lessons) drawLesson(ctx, lesson, rect, compact);
 
-  drawWatermark(ctx, layout);
-
-  // Footer, like the "Vytvořeno …" line on the official PNGs, plus the site credit.
-  const footerY = layout.height - EXPORT.footerH / 2;
-  ctx.fillStyle = '#9ca3af';
-  ctx.font = `11px ${FONT}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(`Vytvořeno ${new Date().toISOString().slice(0, 10)}`, EXPORT.padX, footerY);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#0365a9';
-  ctx.font = `bold 11px ${FONT}`;
-  ctx.fillText(`${WATERMARK.text} · ${WATERMARK.url}`, EXPORT.width - EXPORT.padX, footerY);
 }
 
 /** Rasterises the schedule to a canvas at the given pixel density. */
