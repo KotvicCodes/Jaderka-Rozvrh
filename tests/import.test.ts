@@ -140,7 +140,7 @@ describe('recognizeOfficial', () => {
     const result = (await recognizeOfficial(fixture('Bc1JCF1'), engine, (done) => progress.push(done)))!;
     expect(result.specText).toBe('JCF1');
     expect(result.lessons).toHaveLength(JCF1.length);
-    expect(result.lessons[0]).toMatchObject({ day: 0, start: 8, duration: 2, color: 'pink', subject: 'MECHcv', lecturer: 'Bren', room: 'B-103' });
+    expect(result.lessons[0]).toMatchObject({ day: 0, start: 8, duration: 2, color: 'pink', subject: 'MECHcv', lecturer: 'Břeň', room: 'B-103' });
     expect(progress.at(-1)).toBe(JCF1.length + 1);
   });
 });

@@ -23,6 +23,9 @@ download it as a PDF.
     block positions, lengths, parallel lanes and colours come from the image, and subject, lecturer and room
     are read with OCR ([Tesseract.js](https://tesseract.projectnaptha.com/)). PDFs give the best results because
     they are rendered at high resolution; titles read from the small PNGs are worth double-checking.
+  - lecturers and rooms read by OCR are matched against the official lists of teachers and classrooms
+    (`src/import/known-names.ts`): a name 1–2 letters off a single known teacher becomes that teacher, with
+    proper diacritics. Refresh the lists each semester with `npm run update-names`.
   - pdf.js and the OCR engine (~4 MB, from a CDN) load only when an import needs them.
 - Several schedules can be kept side by side; everything is saved in the browser (`localStorage`).
 

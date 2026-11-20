@@ -1,6 +1,7 @@
 import { normalizeLesson, type Lesson } from '../model';
 import { detectBlocks, detectGeometry, specIdRect, splitMetaStrip } from './fjfi';
 import { dominantColor, inkBounds, prepareForOcr, type Raster, type Rect } from './raster';
+import { snapLecturer, snapRoom } from './snap';
 
 export type TextKind = 'title' | 'lecturer' | 'room' | 'spec';
 
@@ -94,7 +95,14 @@ export async function recognizeOfficial(
     if (!text) return '';
     // The background comes from the whole area; the tight crop is mostly text.
     const bg = dominantColor(r, rect);
-    const clean = { title: cleanTitle, spec: cleanTitle, lecturer: cleanLecturer, room: cleanRoom }[kind];
+    // Lecturers and rooms are snapped to the official lists before voting,
+    // so near-misses at different zooms agree on the same name.
+    const clean = {
+      title: cleanTitle,
+      spec: cleanTitle,
+      lecturer: (t: string) => snapLecturer(cleanLecturer(t)),
+      room: (t: string) => snapRoom(cleanRoom(t)),
+    }[kind];
     const readings: OcrResult[] = [];
     for (const scale of scales) {
       const result = await engine.read(prepareForOcr(r, text, scale / g.s, bg), kind);
@@ -113,8 +121,8 @@ export async function recognizeOfficial(
     const parts = splitMetaStrip(r, b.metaRect, g.s);
     const [subject, lecturer, room] = [
       cleanTitle(await read(b.titleRect, 'title', TITLE_SCALES)),
-      cleanLecturer(await read(parts.lecturer, 'lecturer')),
-      cleanRoom(await read(parts.room, 'room')),
+      await read(parts.lecturer, 'lecturer'),
+      await read(parts.room, 'room'),
     ];
     lessons.push(normalizeLesson({ day: b.day, start: b.start, duration: b.duration, color: b.color, subject, lecturer, room }));
     onProgress?.(++done, total);
