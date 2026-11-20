@@ -100,7 +100,16 @@ function drawLesson(ctx: CanvasRenderingContext2D, lesson: Lesson, r: Rect, comp
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${compact ? 11 : 14}px ${FONT}`;
-  ctx.fillText(fitText(ctx, lesson.subject, r.w - 8), r.x + r.w / 2, r.y + (r.h - metaH) / 2 + 1);
+  const title = fitText(ctx, lesson.subject, r.w - 8);
+  const titleY = r.y + (r.h - metaH) / 2 + 1;
+  // White halo around the title, as on the official timetable.
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = compact ? 2.5 : 3;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(title, r.x + r.w / 2, titleY);
+  ctx.restore();
+  ctx.fillText(title, r.x + r.w / 2, titleY);
 
   ctx.font = `${compact ? 9 : 10}px ${FONT}`;
   const metaY = r.y + r.h - metaH / 2 - 1;
