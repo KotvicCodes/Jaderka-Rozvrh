@@ -5,6 +5,17 @@ own timetable, styled after the official schedules at
 [rozvrh.fjfi.cvut.cz](https://rozvrh.fjfi.cvut.cz/rozvrh/studenti/bs1), and
 download it as a PDF.
 
+## Features
+
+- Timetable grid laid out like the official one: Monday–Friday rows, 8:00–20:00 columns.
+- Click any free hour slot to add a lesson; click a lesson to edit or delete it.
+- Each lesson has a subject, classroom, lecturer, duration and colour.
+- Lessons always start on a whole hour (10:00, 11:00, …) and end by 20:00.
+- The colour palette uses every lesson colour found on the bs1–bs3 schedules.
+- Each schedule has a specialization ID (e.g. `Bc1JCF1`), with suggestions for all published IDs.
+- Overlapping (parallel) lessons are stacked, as on the official timetable.
+- Several schedules can be kept side by side; everything is saved in the browser (`localStorage`).
+
 Built with plain TypeScript and [Vite](https://vite.dev); no UI framework.
 
 ## Development

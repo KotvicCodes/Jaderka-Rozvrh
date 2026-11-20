@@ -1,0 +1,40 @@
+import { describe, expect, it } from 'vitest';
+import { createSchedule, normalizeLesson } from '../src/model';
+import { loadState, parseState, saveState } from '../src/storage';
+
+class MemoryStorage implements Storage {
+  private data = new Map<string, string>();
+  get length() { return this.data.size; }
+  clear() { this.data.clear(); }
+  getItem(key: string) { return this.data.get(key) ?? null; }
+  key(i: number) { return [...this.data.keys()][i] ?? null; }
+  removeItem(key: string) { this.data.delete(key); }
+  setItem(key: string, value: string) { this.data.set(key, value); }
+}
+
+describe('storage', () => {
+  it('round-trips schedules', () => {
+    const storage = new MemoryStorage();
+    const schedule = createSchedule('Bc2JI_JR1');
+    schedule.lessons.push(normalizeLesson({ subject: 'ZPRO', start: 10, duration: 2, day: 1 }));
+    expect(saveState({ schedules: [schedule], activeId: schedule.id }, storage)).toBe(true);
+    const loaded = loadState(storage);
+    expect(loaded.activeId).toBe(schedule.id);
+    expect(loaded.schedules[0]?.lessons[0]?.subject).toBe('ZPRO');
+  });
+
+  it('recovers from corrupt data', () => {
+    expect(parseState('{not json').schedules).toHaveLength(1);
+    expect(parseState(JSON.stringify({ schedules: [] })).schedules).toHaveLength(1);
+    const s = parseState(JSON.stringify({ schedules: [{ id: 'a' }], activeId: 'missing' }));
+    expect(s.activeId).toBe('a');
+  });
+
+  it('reports failure when storage throws', () => {
+    const broken = new MemoryStorage();
+    broken.setItem = () => {
+      throw new Error('quota');
+    };
+    expect(saveState(parseState(null), broken)).toBe(false);
+  });
+});
