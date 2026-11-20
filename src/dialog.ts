@@ -1,4 +1,4 @@
-import { DAYS, PALETTE } from './config';
+import { DAYS, PALETTE, paletteLabel } from './config';
 import { h } from './dom';
 import { formatHour, maxDuration, normalizeLesson, startHours, type Lesson, type LessonDraft } from './model';
 
@@ -40,13 +40,13 @@ export function openLessonDialog(draft: LessonDraft, existing?: Lesson): Promise
 
     const swatches = h(
       'div',
-      { class: 'swatches', role: 'radiogroup', 'aria-label': 'Barva' },
+      { class: 'swatches', role: 'radiogroup', 'aria-label': 'Barva podle katedry' },
       ...PALETTE.map((c) =>
         h(
           'label',
-          { class: 'swatch', title: c.name, style: `--fill:${c.fill};--border:${c.border}` },
-          h('input', { type: 'radio', name: 'color', value: c.id, checked: c.id === initial.color, 'aria-label': c.name }),
-          h('span', { class: 'swatch-chip', 'aria-hidden': 'true' }),
+          { class: 'swatch', title: paletteLabel(c), style: `--fill:${c.fill};--border:${c.border}` },
+          h('input', { type: 'radio', name: 'color', value: c.id, checked: c.id === initial.color, 'aria-label': paletteLabel(c) }),
+          h('span', { class: 'swatch-chip', 'aria-hidden': 'true' }, c.dept),
         ),
       ),
     );
@@ -63,7 +63,7 @@ export function openLessonDialog(draft: LessonDraft, existing?: Lesson): Promise
       field('Předmět', subject),
       h('div', { class: 'field-row' }, field('Učebna', room), field('Vyučující', lecturer)),
       h('div', { class: 'field-row field-row--3' }, field('Den', day), field('Začátek', start), field('Délka', duration)),
-      h('fieldset', { class: 'field' }, h('legend', {}, 'Barva'), swatches),
+      h('fieldset', { class: 'field' }, h('legend', {}, 'Barva (katedra)'), swatches),
       h('div', { class: 'dialog-actions' }, deleteBtn, h('span', { class: 'spacer' }), cancelBtn, h('button', { type: 'submit', class: 'btn btn-primary' }, 'Uložit')),
     );
 

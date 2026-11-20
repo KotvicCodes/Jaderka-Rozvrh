@@ -11,7 +11,7 @@ download it as a PDF.
 - Click any free hour slot to add a lesson; click a lesson to edit or delete it.
 - Each lesson has a subject, classroom, lecturer, duration and colour.
 - Lessons always start on a whole hour (10:00, 11:00, …) and end by 20:00.
-- The colour palette uses every lesson colour found on the bs1–bs3 schedules.
+- Colours follow the official scheme: one colour per department (katedra), labelled with its abbreviation (KM, KF, KHVJ, KIPL, KLFF, KMAT, KJCH, KDAIZ, KJR, KSI).
 - Each schedule has a specialization ID (e.g. `Bc1JCF1`), with suggestions for all published IDs.
 - Overlapping (parallel) lessons are stacked, as on the official timetable.
 - Drag and drop lessons to another day or hour (snaps to whole hours); Alt + arrow keys do the same from the keyboard.

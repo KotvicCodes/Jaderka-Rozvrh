@@ -81,3 +81,11 @@ describe('layoutDay', () => {
     expect(byId.x?.lane).toBe(byId.y?.lane);
   });
 });
+
+describe('palette', () => {
+  it('has one colour per FJFI department, with unique abbreviations and code prefixes', () => {
+    expect(PALETTE.map((c) => c.dept)).toEqual(['KM', 'KF', 'KHVJ', 'KIPL', 'KLFF', 'KMAT', 'KJCH', 'KDAIZ', 'KJR', 'KSI']);
+    expect(new Set(PALETTE.map((c) => c.code)).size).toBe(PALETTE.length);
+    expect(new Set(PALETTE.map((c) => c.id)).size).toBe(PALETTE.length);
+  });
+});
