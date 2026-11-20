@@ -14,6 +14,9 @@ download it as a PDF.
 - The colour palette uses every lesson colour found on the bs1–bs3 schedules.
 - Each schedule has a specialization ID (e.g. `Bc1JCF1`), with suggestions for all published IDs.
 - Overlapping (parallel) lessons are stacked, as on the official timetable.
+- Drag and drop lessons to another day or hour (snaps to whole hours); Alt + arrow keys do the same from the keyboard.
+- Download as **PDF** (A4 landscape) or **PNG**, drawn like the official timetable.
+- Exports carry the schedule data invisibly (PNG `tEXt` chunk, PDF Info entry), so they can be imported back later.
 - Several schedules can be kept side by side; everything is saved in the browser (`localStorage`).
 
 Built with plain TypeScript and [Vite](https://vite.dev); no UI framework.

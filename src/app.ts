@@ -1,8 +1,9 @@
 import { DEFAULT_COLOR_ID, FIRST_HOUR, KNOWN_SPECS } from './config';
 import { openLessonDialog } from './dialog';
 import { h } from './dom';
+import { downloadPdf, downloadPng } from './export';
 import { renderGrid } from './grid';
-import { createSchedule, type Lesson, type LessonDraft, type Schedule } from './model';
+import { createSchedule, normalizeLesson, type Lesson, type LessonDraft, type Schedule } from './model';
 import { loadState, saveState, type AppState } from './storage';
 
 export class App {
@@ -21,7 +22,7 @@ export class App {
         'main',
         { class: 'container' },
         this.toolbar,
-        h('p', { class: 'hint' }, 'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny začínají vždy v celou.'),
+        h('p', { class: 'hint' }, 'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny přesuneš přetažením (nebo Alt + šipky). Hodiny začínají vždy v celou.'),
         this.boardHost,
         this.status,
       ),
@@ -93,6 +94,11 @@ export class App {
     const addBtn = h('button', { type: 'button', class: 'btn btn-primary' }, '+ Přidat hodinu');
     addBtn.addEventListener('click', () => void this.addLesson(0, FIRST_HOUR));
 
+    const pdfBtn = h('button', { type: 'button', class: 'btn' }, 'Stáhnout PDF');
+    pdfBtn.addEventListener('click', () => void this.runExport('pdf', pdfBtn));
+    const pngBtn = h('button', { type: 'button', class: 'btn' }, 'Stáhnout PNG');
+    pngBtn.addEventListener('click', () => void this.runExport('png', pngBtn));
+
     this.toolbar.replaceChildren(
       h('label', { class: 'toolbar-field' }, h('span', {}, 'Rozvrh'), picker),
       h('label', { class: 'toolbar-field' }, h('span', {}, 'ID zaměření'), specInput),
@@ -101,6 +107,8 @@ export class App {
       h('span', { class: 'spacer' }),
       newBtn,
       deleteBtn,
+      pdfBtn,
+      pngBtn,
       addBtn,
     );
   }
@@ -111,8 +119,29 @@ export class App {
       renderGrid(this.active, {
         onSlotClick: (day, hour) => void this.addLesson(day, hour),
         onLessonClick: (lesson) => void this.editLesson(lesson),
+        onLessonMove: (lesson, day, start) => this.moveLesson(lesson, day, start),
       }),
     );
+  }
+
+  private moveLesson(lesson: Lesson, day: number, start: number): void {
+    const hadFocus = document.activeElement?.closest('[data-lesson-id]') !== null;
+    this.active.lessons = this.active.lessons.map((l) => (l.id === lesson.id ? normalizeLesson({ ...l, day, start }) : l));
+    this.commit(`Přesunuto: ${lesson.subject}`);
+    if (hadFocus) this.boardHost.querySelector<HTMLElement>(`[data-lesson-id="${CSS.escape(lesson.id)}"]`)?.focus();
+  }
+
+  private async runExport(kind: 'pdf' | 'png', button: HTMLButtonElement): Promise<void> {
+    button.disabled = true;
+    this.status.textContent = 'Připravuji soubor…';
+    try {
+      await (kind === 'pdf' ? downloadPdf(this.active) : downloadPng(this.active));
+      this.status.textContent = kind === 'pdf' ? 'PDF staženo.' : 'PNG staženo.';
+    } catch (err) {
+      this.status.textContent = `Export se nepovedl: ${err instanceof Error ? err.message : String(err)}`;
+    } finally {
+      button.disabled = false;
+    }
   }
 
   private async addLesson(day: number, hour: number): Promise<void> {
