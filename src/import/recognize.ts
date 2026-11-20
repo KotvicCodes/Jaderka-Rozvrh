@@ -23,11 +23,11 @@ export interface Recognized {
 
 /**
  * Zoom applied to text crops (relative to the 800 px official PNG). Small
- * print reads best at 4×. Bold titles are read at several zooms because no
+ * print is read at three zooms, too. Bold titles are read at several zooms because no
  * single zoom reads every title correctly; the reading most zooms agree on
  * wins, otherwise the most confident one.
  */
-const META_SCALE = 4;
+const META_SCALES = [3, 4, 6];
 const TITLE_SCALES = [2, 3, 4, 6];
 
 /** Chooses among readings of the same text: majority first, then confidence. */
@@ -71,8 +71,8 @@ export function cleanRoom(text: string): string {
   if (/^[-.]*$/.test(t)) return '';
   t = t.toUpperCase();
   // FJFI buildings are letters (B-103, T-201, KLFF-121); small print often
-  // reads "B" as "8" and "T" as "1"/"7".
-  return t.replace(/^8(?=-)/, 'B').replace(/^[17](?=-)/, 'T');
+  // reads "B" as "8" and "T" as "1", "7" or "I".
+  return t.replace(/^8(?=-)/, 'B').replace(/^[17I](?=-)/, 'T');
 }
 
 /**
@@ -88,13 +88,13 @@ export async function recognizeOfficial(
   if (!g) return null;
   const blocks = detectBlocks(r, g);
   if (blocks.length === 0) return null;
-  const read = async (rect: Rect | null, kind: TextKind, scales: number[] = [META_SCALE]): Promise<string> => {
+  const read = async (rect: Rect | null, kind: TextKind, scales: number[] = META_SCALES): Promise<string> => {
     if (!rect || rect.w < 2 || rect.h < 2) return '';
     const text = inkBounds(r, rect, Math.max(1, g.s));
     if (!text) return '';
     // The background comes from the whole area; the tight crop is mostly text.
     const bg = dominantColor(r, rect);
-    const clean = kind === 'title' || kind === 'spec' ? cleanTitle : (t: string) => t;
+    const clean = { title: cleanTitle, spec: cleanTitle, lecturer: cleanLecturer, room: cleanRoom }[kind];
     const readings: OcrResult[] = [];
     for (const scale of scales) {
       const result = await engine.read(prepareForOcr(r, text, scale / g.s, bg), kind);

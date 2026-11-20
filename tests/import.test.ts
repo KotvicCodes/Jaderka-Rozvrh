@@ -32,6 +32,39 @@ function screenshot(src: Raster, factor: number, padX: number, padY: number): Ra
   return { width, height, data };
 }
 
+/**
+ * Imitates a screenshot of the timetable in a browser/PDF viewer: colours
+ * mixed with white, fractional upscaling and a blur.
+ */
+function blurryScreenshot(src: Raster, factor: number, paler: number): Raster {
+  const big = screenshot(src, factor, 20, 30);
+  const { width, height } = big;
+  const tinted = new Uint8Array(big.data.length);
+  for (let i = 0; i < big.data.length; i += 4) {
+    for (let k = 0; k < 3; k++) tinted[i + k] = Math.round(big.data[i + k]! + (255 - big.data[i + k]!) * paler);
+    tinted[i + 3] = 255;
+  }
+  const out = new Uint8Array(tinted.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      for (let k = 0; k < 4; k++) {
+        let sum = 0;
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = Math.min(width - 1, Math.max(0, x + dx));
+            const yy = Math.min(height - 1, Math.max(0, y + dy));
+            sum += tinted[(yy * width + xx) * 4 + k]!;
+            n++;
+          }
+        }
+        out[(y * width + x) * 4 + k] = Math.round(sum / n);
+      }
+    }
+  }
+  return { width, height, data: out };
+}
+
 const summary = (blocks: DetectedBlock[]) =>
   blocks.map((b) => `${b.day} ${b.start}+${b.duration} ${b.color} ${b.lane}/${b.lanes}`).sort();
 
@@ -72,6 +105,13 @@ describe('official timetable detection', () => {
     const shot = screenshot(fixture('Bc1JCF1'), 2, 37, 23);
     const g = detectGeometry(shot)!;
     expect(g.s).toBeCloseTo(2, 1);
+    expect(summary(detectBlocks(shot, g))).toEqual(JCF1);
+  });
+
+  it('works on paler, blurred screenshots at fractional zoom', () => {
+    const shot = blurryScreenshot(fixture('Bc1JCF1'), 2.4, 0.2);
+    const g = detectGeometry(shot)!;
+    expect(g.s).toBeCloseTo(2.4, 1);
     expect(summary(detectBlocks(shot, g))).toEqual(JCF1);
   });
 

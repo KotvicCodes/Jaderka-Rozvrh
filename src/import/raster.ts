@@ -86,7 +86,13 @@ export function inkBounds(src: Raster, rect: Rect, pad = 1): Rect | null {
  * lesson colour; anti-aliasing is kept as grey for the OCR's own binarisation.
  */
 export function prepareForOcr(src: Raster, rect: Rect, factor: number, bg: Rgb = dominantColor(src, rect), margin = 12): Raster {
-  const full = Math.max(1, colorDistance(bg, [0, 0, 0]) * 0.8);
+  // Blurry screenshots never reach full black, so stretch the contrast to
+  // the darkest pixel actually present in the crop.
+  let darkest = 0;
+  for (let y = Math.round(rect.y); y < rect.y + rect.h; y++) {
+    for (let x = Math.round(rect.x); x < rect.x + rect.w; x++) darkest = Math.max(darkest, colorDistance(pixel(src, x, y), bg));
+  }
+  const full = Math.max(1, Math.min(colorDistance(bg, [0, 0, 0]), darkest) * 0.8);
   const w = Math.max(1, Math.round(rect.w * factor));
   const h = Math.max(1, Math.round(rect.h * factor));
   const outW = w + 2 * margin;
