@@ -9,8 +9,14 @@ export const LAST_HOUR = 20;
 export const HOUR_COUNT = LAST_HOUR - FIRST_HOUR;
 
 export interface PaletteColor {
+  /** Stable key stored with lessons. */
   id: string;
-  name: string;
+  /** Department abbreviation, e.g. "KM". */
+  dept: string;
+  /** Department name, e.g. "katedra matematiky". */
+  deptName: string;
+  /** Subject-code prefix of the department's courses, e.g. "01" for 01MAN. */
+  code: string;
   /** Block background. */
   fill: string;
   /** Block outline. */
@@ -18,21 +24,30 @@ export interface PaletteColor {
 }
 
 /**
- * Every lesson colour used on the official bs1–bs3 schedules (fill + outline),
- * sampled from the published PNGs.
+ * Lesson colours of the official timetables. Each department (katedra) has
+ * one colour, used for all of its courses (rozvrh.fjfi.cvut.cz → Informace →
+ * FAQ, "Proč je lísteček barevný?"). Which colour belongs to which
+ * department was read off the departments' teacher timetables
+ * (/rozvrh/ucitele/<katedra>); fill and outline values are sampled from the
+ * published PNGs. Ordered by subject-code prefix.
  */
 export const PALETTE: readonly PaletteColor[] = [
-  { id: 'green', name: 'Zelená', fill: '#a1e264', border: '#87d938' },
-  { id: 'pink', name: 'Růžová', fill: '#faa8a8', border: '#f88f8f' },
-  { id: 'grey', name: 'Šedá', fill: '#c7c7c7', border: '#b6b6b6' },
-  { id: 'tan', name: 'Hnědá', fill: '#d6a860', border: '#ca8f33' },
-  { id: 'purple', name: 'Fialová', fill: '#a38ba7', border: '#89698e' },
-  { id: 'blue', name: 'Modrá', fill: '#7898c3', border: '#517bb1' },
-  { id: 'orange', name: 'Oranžová', fill: '#f8a555', border: '#f68c25' },
-  { id: 'yellow', name: 'Žlutá', fill: '#f3e255', border: '#f0da25' },
-  { id: 'teal', name: 'Tyrkysová', fill: '#55ded2', border: '#25d4c5' },
-  { id: 'red', name: 'Červená', fill: '#de5555', border: '#d42525' },
+  { id: 'green', dept: 'KM', deptName: 'katedra matematiky', code: '01', fill: '#a1e264', border: '#87d938' },
+  { id: 'pink', dept: 'KF', deptName: 'katedra fyziky', code: '02', fill: '#faa8a8', border: '#f88f8f' },
+  { id: 'grey', dept: 'KHVJ', deptName: 'katedra humanitních věd a jazyků', code: '04', fill: '#c7c7c7', border: '#b6b6b6' },
+  { id: 'red', dept: 'KIPL', deptName: 'katedra inženýrství pevných látek', code: '11', fill: '#de5555', border: '#d42525' },
+  { id: 'orange', dept: 'KLFF', deptName: 'katedra laserové fyziky a fotoniky', code: '12', fill: '#f8a555', border: '#f68c25' },
+  { id: 'teal', dept: 'KMAT', deptName: 'katedra materiálů', code: '14', fill: '#55ded2', border: '#25d4c5' },
+  { id: 'purple', dept: 'KJCH', deptName: 'katedra jaderné chemie', code: '15', fill: '#a38ba7', border: '#89698e' },
+  { id: 'blue', dept: 'KDAIZ', deptName: 'katedra dozimetrie a aplikace ionizujícího záření', code: '16', fill: '#7898c3', border: '#517bb1' },
+  { id: 'yellow', dept: 'KJR', deptName: 'katedra jaderných reaktorů', code: '17', fill: '#f3e255', border: '#f0da25' },
+  { id: 'tan', dept: 'KSI', deptName: 'katedra softwarového inženýrství', code: '18', fill: '#d6a860', border: '#ca8f33' },
 ];
+
+/** Human-readable label of a palette colour, e.g. "KM – katedra matematiky (01…)". */
+export function paletteLabel(c: PaletteColor): string {
+  return `${c.dept} – ${c.deptName} (${c.code}…)`;
+}
 
 export const DEFAULT_COLOR_ID = 'green';
 
