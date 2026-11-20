@@ -76,9 +76,59 @@ export function detectGeometry(r: Raster): Geometry | null {
   const candidates = runs.filter((run) => run.len >= best * 0.97);
   const bottomRun = candidates[candidates.length - 1]!;
   const s = bottomRun.len / T.frameWidth;
-  const g: Geometry = { s, left: bottomRun.start, bottom: bottomRun.y };
+  const g = refineGeometry(r, { s, left: bottomRun.start, bottom: bottomRun.y });
   if (rowTop(g, 0) < 0 || hourX(g, HOUR_COUNT) > r.width + 2) return null;
   return g;
+}
+
+/** Centre of the strongest light grey line near `expected` along one axis. */
+function locateLine(expected: number, radius: number, weight: (pos: number) => number): number | null {
+  let best = 0;
+  let bestPos: number | null = null;
+  for (let pos = Math.round(expected - radius); pos <= Math.round(expected + radius); pos++) {
+    const w = weight(pos);
+    if (w > best) {
+      best = w;
+      bestPos = pos;
+    }
+  }
+  if (bestPos === null) return null;
+  // Thick or anti-aliased lines: take the centre of the equally strong run.
+  let end = bestPos;
+  while (end + 1 <= expected + radius && weight(end + 1) >= best * 0.8) end++;
+  return (bestPos + end) / 2;
+}
+
+const greyness = (rgb: Rgb) => (isGridLine(rgb) || (Math.abs(rgb[0] - rgb[1]) < 8 && Math.abs(rgb[1] - rgb[2]) < 8 && rgb[0] > 160 && rgb[0] < 246) ? 255 - rgb[0] : 0);
+
+/**
+ * The bottom frame line's ends fade out in scaled screenshots, which skews
+ * the first estimate. Snap to the actual 8:00 and 20:00 grid lines (visible
+ * between the hour labels and Monday) and to the bottom line's centre.
+ */
+function refineGeometry(r: Raster, g: Geometry): Geometry {
+  const bandTop = rowTop(g, 0) - 14 * g.s;
+  const bandBottom = rowTop(g, 0) - 5 * g.s;
+  const columnWeight = (x: number) => {
+    let sum = 0;
+    for (let y = Math.round(bandTop); y <= bandBottom; y++) sum += greyness(pixel(r, x, y));
+    return sum;
+  };
+  const x8 = locateLine(hourX(g, 0), 4 * g.s, columnWeight);
+  const x20 = locateLine(hourX(g, HOUR_COUNT), 4 * g.s, columnWeight);
+  if (x8 === null || x20 === null) return g;
+  const s = (x20 - x8) / (T.hourW * HOUR_COUNT);
+  if (Math.abs(s - g.s) > 0.05 * g.s) return g;
+  const left = x8 - T.firstHourOffset * s;
+
+  const rowWeight = (y: number) => {
+    let sum = 0;
+    for (let x = Math.round(x8); x <= x20; x += Math.max(1, Math.round(s))) sum += greyness(pixel(r, x, y)) > 0 ? 1 : 0;
+    return sum;
+  };
+  // The bottom frame line is never covered by lessons; use its centre.
+  const bottom = locateLine(g.bottom, 2 * g.s, rowWeight) ?? g.bottom;
+  return { s, left, bottom };
 }
 
 interface PaletteRef {
@@ -90,23 +140,30 @@ function tint([r, g, b]: Rgb, amount: number): Rgb {
   return [r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount].map(Math.round) as Rgb;
 }
 
-/** Fill, border and lighter edge shades seen on the official images, per palette colour. */
-const PALETTE_REFS: PaletteRef[] = [
-  ...PALETTE.flatMap((c) => [
-    { id: c.id, rgb: hexToRgb(c.fill) },
-    { id: c.id, rgb: hexToRgb(c.border) },
-    // Side and bottom edges are drawn slightly lighter than the fill.
-    { id: c.id, rgb: tint(hexToRgb(c.fill), 0.15) },
-  ]),
-  // The official PDFs draw fills semi-transparent, so they render ~25 %
-  // lighter. (Not for grey: a lighter grey would match the grid lines.)
-  ...PALETTE.filter((c) => c.id !== 'grey').map((c) => ({ id: c.id, rgb: tint(hexToRgb(c.fill), 0.25) })),
+/**
+ * Shades each palette colour can appear in. The official PNG uses the
+ * palette as is, but the PDF draws fills semi-transparent, and screenshots
+ * of either (browser/PDF viewer, colour management, scaling) come out paler.
+ * So every fill and border colour is also matched mixed with up to 45 %
+ * white. Grey only up to 12 %, since a paler grey would match the grid lines.
+ */
+const PALETTE_REFS: PaletteRef[] = PALETTE.flatMap((c) => {
+  const grey = c.id === 'grey';
   // Darker grey used for parallel blocks (e.g. MAM1/MAM2).
-  { id: 'grey', rgb: hexToRgb('#bbbbbb') },
-  { id: 'grey', rgb: hexToRgb('#a7a7a7') },
-];
+  const bases = grey ? [c.fill, c.border, '#bbbbbb', '#a7a7a7'] : [c.fill, c.border];
+  const maxTint = grey ? 0.12 : 0.45;
+  const refs: PaletteRef[] = [];
+  for (const base of bases) {
+    for (let t = 0; t <= maxTint + 1e-9; t += grey ? 0.04 : 0.05) refs.push({ id: c.id, rgb: tint(hexToRgb(base), t) });
+  }
+  return refs;
+});
 
-export function classifyColor(rgb: Rgb, tolerance = 22): string | null {
+const classifyCache = new Map<number, string | null>();
+
+export function classifyColor(rgb: Rgb, tolerance = 20): string | null {
+  const key = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+  if (tolerance === 20 && classifyCache.has(key)) return classifyCache.get(key)!;
   let bestId: string | null = null;
   let bestD = tolerance;
   for (const ref of PALETTE_REFS) {
@@ -116,6 +173,7 @@ export function classifyColor(rgb: Rgb, tolerance = 22): string | null {
       bestId = ref.id;
     }
   }
+  if (tolerance === 20) classifyCache.set(key, bestId);
   return bestId;
 }
 
@@ -171,7 +229,16 @@ function cleanestScan(r: Raster, g: Geometry, yTop: number, yBottom: number, hou
       if (kinds.length > 0 && kinds[kinds.length - 1] !== kind) changes++;
       kinds.push(kind);
     }
-    const score = changes * 1000 + other;
+    // Lines through blurred block edges have few changes but no white
+    // lecturer strip; lines that do show a strip are preferred.
+    let longestWhite = 0;
+    for (let i = 0, run = 0; i < kinds.length; i++) {
+      run = kinds[i] === 'white' ? run + 1 : 0;
+      longestWhite = Math.max(longestWhite, run);
+    }
+    const hasColor = kinds.some((k) => k !== 'white' && k !== 'other');
+    const missingStrip = hasColor && longestWhite < Math.max(4, 5 * g.s) ? 1 : 0;
+    const score = missingStrip * 1e6 + changes * 1000 + other;
     if (score < bestScore) {
       best = kinds;
       bestScore = score;
@@ -191,6 +258,8 @@ function columnCells(r: Raster, g: Geometry, day: number, hourIndex: number): Ce
   const rowH = T.rowH * g.s;
   const border = Math.max(1, Math.round(T.border * g.s));
   const minStrip = Math.max(4, 5 * g.s);
+  // Enlarged screenshots blur the edge under the strip; sharp images don't.
+  const blur = g.s >= 1.5 ? Math.round(1.5 * g.s) : 0;
   let i = 0;
   while (i < kinds.length) {
     // A cell starts with its coloured top border…
@@ -209,9 +278,12 @@ function columnCells(r: Raster, g: Geometry, day: number, hourIndex: number): Ce
       if (k === 'white') {
         let end = j;
         while (end < kinds.length && kinds[end] === 'white') end++;
-        if (end - j >= minStrip && isColor(kinds[end])) {
+        // Allow a blurred pixel or two between the strip and the border.
+        let next = end;
+        while (next < kinds.length && next - end < blur && kinds[next] === 'other') next++;
+        if (end - j >= minStrip && isColor(kinds[next])) {
           stripTop = j;
-          stripEnd = end;
+          stripEnd = next;
           break;
         }
         j = end;
@@ -237,18 +309,30 @@ function columnCells(r: Raster, g: Geometry, day: number, hourIndex: number): Ce
 /**
  * True when a new block begins at the hour line. Inside the white
  * lecturer/room strip a continuous block is white across the line, while two
- * neighbouring blocks show their coloured side borders on both sides of it.
+ * neighbouring blocks show their coloured side borders there. The borders
+ * are searched for in a small window around the line, since screenshots blur
+ * them and the grid estimate can be a pixel or two off.
  */
 function isBoundary(r: Raster, g: Geometry, hourIndex: number, cell: Cell): boolean {
   const xh = hourX(g, hourIndex);
-  const near = Math.max(1, g.s);
+  const reach = Math.max(2, 3 * g.s);
   let bordered = 0;
   let rows = 0;
   for (let y = cell.stripTop; y <= cell.stripBottom; y++) {
     rows++;
-    if (classifyColor(pixel(r, xh - near, y)) && classifyColor(pixel(r, xh + near, y))) bordered++;
+    for (let x = Math.round(xh - reach); x <= xh + reach; x++) {
+      if (classifyColor(pixel(r, x, y)) === cell.color) {
+        bordered++;
+        break;
+      }
+    }
   }
   return rows > 0 && bordered / rows >= 0.6;
+}
+
+function overlapRatio(a: Cell, b: Cell): number {
+  const overlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) + 1;
+  return overlap / Math.min(a.bottom - a.top + 1, b.bottom - b.top + 1);
 }
 
 /** Detects every lesson block on an official timetable image. */
@@ -260,11 +344,17 @@ export function detectBlocks(r: Raster, g: Geometry): DetectedBlock[] {
     for (let c = 0; c < HOUR_COUNT; c++) {
       const next: typeof open = [];
       for (const cell of columnCells(r, g, day, c)) {
-        const prev = open.find(
-          (b) => b.lane === cell.lane && b.lanes === cell.lanes && b.color === cell.color && Math.abs(b.cell.top - cell.top) <= 2 * g.s + 1,
-        );
+        // The same block continues if a same-coloured cell in the previous
+        // hour overlaps this one vertically and no border separates them.
+        const prev = open.find((b) => b.color === cell.color && !next.includes(b) && overlapRatio(b.cell, cell) >= 0.6);
         if (prev && !isBoundary(r, g, c, cell)) {
           prev.duration++;
+          // Keep the measurement of the taller (less obstructed) cell.
+          if (cell.bottom - cell.top > prev.cell.bottom - prev.cell.top) {
+            prev.cell = cell;
+            prev.lane = cell.lane;
+            prev.lanes = cell.lanes;
+          }
           next.push(prev);
           continue;
         }
