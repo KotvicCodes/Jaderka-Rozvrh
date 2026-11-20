@@ -114,6 +114,18 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   text-align: center;
   background-clip: padding-box;
 }
+.lesson { touch-action: none; user-select: none; }
+.lesson--dragging { z-index: 5; opacity: 0.85; pointer-events: none; cursor: grabbing; box-shadow: 0 6px 16px rgb(0 0 0 / 0.3); }
+.drop-preview {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border: 2px dashed var(--brand);
+  border-radius: 3px;
+  background: rgb(3 101 169 / 0.08);
+  pointer-events: none;
+  z-index: 4;
+}
 .lesson:hover { filter: brightness(1.04); box-shadow: 0 1px 4px rgb(0 0 0 / 0.25); z-index: 2; }
 .lesson-title {
   flex: 1;
