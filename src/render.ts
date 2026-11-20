@@ -7,10 +7,10 @@ import { formatHour, layoutDay, type Lesson, type Schedule } from './model';
  */
 export const EXPORT = {
   padX: 16,
-  labelW: 100,
+  labelW: 120,
   hourW: 64,
-  /** Room right of 20:00 for its label. */
-  rightPad: 24,
+  /** Room right of 20:00 for its label (centred on the last line). */
+  rightPad: 40,
   headerH: 40,
   rowH: 64,
   laneMinH: 32,
