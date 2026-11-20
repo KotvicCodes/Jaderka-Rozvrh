@@ -13,10 +13,16 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/pngjs": "^6.0.5",
     "jsdom": "^29.1.1",
+    "pngjs": "^7.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "pdfjs-dist": "^5.7.284",
+    "tesseract.js": "^7.0.0"
+  }
 }

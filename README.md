@@ -17,6 +17,13 @@ download it as a PDF.
 - Drag and drop lessons to another day or hour (snaps to whole hours); Alt + arrow keys do the same from the keyboard.
 - Download as **PDF** (A4 landscape) or **PNG**, drawn like the official timetable.
 - Exports carry the schedule data invisibly (PNG `tEXt` chunk, PDF Info entry), so they can be imported back later.
+- **Import** a timetable from a file, by pasting (Ctrl+V) or by dropping it on the page:
+  - our own PDF/PNG exports are restored exactly from the data embedded in them;
+  - official PDFs/PNGs from rozvrh.fjfi.cvut.cz (or a screenshot of the whole table) are recognised:
+    block positions, lengths, parallel lanes and colours come from the image, and subject, lecturer and room
+    are read with OCR ([Tesseract.js](https://tesseract.projectnaptha.com/)). PDFs give the best results because
+    they are rendered at high resolution; titles read from the small PNGs are worth double-checking.
+  - pdf.js and the OCR engine (~4 MB, from a CDN) load only when an import needs them.
 - Several schedules can be kept side by side; everything is saved in the browser (`localStorage`).
 
 Built with plain TypeScript and [Vite](https://vite.dev); no UI framework.
