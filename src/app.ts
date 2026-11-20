@@ -22,12 +22,68 @@ export class App {
         'main',
         { class: 'container' },
         this.toolbar,
-        h('p', { class: 'hint' }, 'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny přesuneš přetažením (nebo Alt + šipky). Hodiny začínají vždy v celou.'),
+        h(
+          'p',
+          { class: 'hint' },
+          'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny přesuneš přetažením (nebo Alt + šipky). Hodiny začínají vždy v celou. ',
+          'Rozvrh z rozvrh.fjfi.cvut.cz (PDF/PNG) nebo dřívější export nahraješ tlačítkem Importovat, vložením (Ctrl+V) nebo přetažením souboru.',
+        ),
         this.boardHost,
         this.status,
       ),
     );
     this.render();
+    this.listenForFiles();
+  }
+
+  /** Paste (Ctrl+V) and drag-and-drop of PDF/image files start an import. */
+  private listenForFiles(): void {
+    document.addEventListener('paste', (e) => {
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, dialog')) return;
+      const file = [...(e.clipboardData?.files ?? [])].find(isImportable);
+      if (file) {
+        e.preventDefault();
+        void this.importFile(file, file.name);
+      }
+    });
+    window.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        document.body.classList.add('drop-target');
+      }
+    });
+    window.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null) document.body.classList.remove('drop-target');
+    });
+    window.addEventListener('drop', (e) => {
+      document.body.classList.remove('drop-target');
+      const file = [...(e.dataTransfer?.files ?? [])].find(isImportable);
+      if (!file) return;
+      e.preventDefault();
+      void this.importFile(file, file.name);
+    });
+  }
+
+  private importing = false;
+
+  private async importFile(file: Blob, name: string): Promise<void> {
+    if (this.importing) return;
+    this.importing = true;
+    document.body.classList.add('busy');
+    try {
+      const { importSchedule } = await import('./import');
+      const { schedule, usedOcr } = await importSchedule(file, name, (message) => (this.status.textContent = message));
+      this.state.schedules.push(schedule);
+      this.state.activeId = schedule.id;
+      const check = usedOcr ? ' Texty byly rozpoznány z obrázku – zkontroluj je prosím (nejpřesnější je import z PDF).' : '';
+      this.commit(`Importováno ${schedule.lessons.length} hodin.${check}`);
+    } catch (err) {
+      this.status.textContent = `Import se nepovedl: ${err instanceof Error ? err.message : String(err)}`;
+    } finally {
+      this.importing = false;
+      document.body.classList.remove('busy');
+    }
   }
 
   private get active(): Schedule {
@@ -99,6 +155,15 @@ export class App {
     const pngBtn = h('button', { type: 'button', class: 'btn' }, 'Stáhnout PNG');
     pngBtn.addEventListener('click', () => void this.runExport('png', pngBtn));
 
+    const fileInput = h('input', { type: 'file', accept: 'application/pdf,image/*', hidden: true });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      if (file) void this.importFile(file, file.name);
+      fileInput.value = '';
+    });
+    const importBtn = h('button', { type: 'button', class: 'btn' }, 'Importovat');
+    importBtn.addEventListener('click', () => fileInput.click());
+
     this.toolbar.replaceChildren(
       h('label', { class: 'toolbar-field' }, h('span', {}, 'Rozvrh'), picker),
       h('label', { class: 'toolbar-field' }, h('span', {}, 'ID zaměření'), specInput),
@@ -109,6 +174,8 @@ export class App {
       deleteBtn,
       pdfBtn,
       pngBtn,
+      importBtn,
+      fileInput,
       addBtn,
     );
   }
@@ -164,4 +231,8 @@ export class App {
       this.commit('Hodina smazána.');
     }
   }
+}
+
+function isImportable(file: File): boolean {
+  return file.type === 'application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name);
 }

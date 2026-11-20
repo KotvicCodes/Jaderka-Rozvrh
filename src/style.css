@@ -191,3 +191,7 @@ fieldset.field legend { padding: 0; margin-bottom: 0.25rem; }
   .toolbar-field select, .toolbar-field input { min-width: 0; width: 100%; }
   .toolbar-field { flex: 1 1 45%; }
 }
+
+/* Import */
+body.drop-target .board-scroll { outline: 3px dashed var(--brand); outline-offset: 4px; }
+body.busy { cursor: progress; }

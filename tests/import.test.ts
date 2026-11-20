@@ -1,0 +1,159 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { PNG } from 'pngjs';
+import { describe, expect, it } from 'vitest';
+import { EMBED_KEY, encodePayload } from '../src/embed';
+import { detectBlocks, detectGeometry, splitMetaStrip, type DetectedBlock } from '../src/import/fjfi';
+import { guessSpecId, readEmbeddedSchedule } from '../src/import';
+import type { Raster } from '../src/import/raster';
+import { cleanLecturer, cleanRoom, cleanTitle, pickReading, recognizeOfficial, type OcrEngine } from '../src/import/recognize';
+import { createSchedule, normalizeLesson } from '../src/model';
+import { buildPdf } from '../src/pdf';
+import { addTextChunk } from '../src/png';
+
+function fixture(name: string): Raster {
+  const png = PNG.sync.read(readFileSync(join(process.cwd(), 'tests/fixtures', `${name}.png`)));
+  return { width: png.width, height: png.height, data: png.data };
+}
+
+/** Nearest-neighbour rescale plus white padding, like a zoomed screenshot. */
+function screenshot(src: Raster, factor: number, padX: number, padY: number): Raster {
+  const width = Math.round(src.width * factor) + 2 * padX;
+  const height = Math.round(src.height * factor) + 2 * padY;
+  const data = new Uint8Array(width * height * 4).fill(255);
+  for (let y = padY; y < height - padY; y++) {
+    for (let x = padX; x < width - padX; x++) {
+      const sx = Math.min(src.width - 1, Math.floor((x - padX) / factor));
+      const sy = Math.min(src.height - 1, Math.floor((y - padY) / factor));
+      const si = (sy * src.width + sx) * 4;
+      data.set(src.data.subarray(si, si + 4), (y * width + x) * 4);
+    }
+  }
+  return { width, height, data };
+}
+
+const summary = (blocks: DetectedBlock[]) =>
+  blocks.map((b) => `${b.day} ${b.start}+${b.duration} ${b.color} ${b.lane}/${b.lanes}`).sort();
+
+// Read off the published Bc1JCF1.png (1st year, Jaderná a částicová fyzika, 1st group).
+const JCF1 = [
+  '0 8+2 pink 0/1', '0 10+2 green 0/1', '0 12+2 tan 0/1', '0 15+3 yellow 0/1', '0 18+2 purple 0/1',
+  '1 10+2 green 0/1', '1 12+2 pink 0/1', '1 18+2 green 0/1',
+  '2 8+2 green 0/1', '2 10+2 green 0/1', '2 12+2 pink 0/1',
+  '3 8+2 grey 0/1', '3 10+2 tan 0/1', '3 12+2 green 0/1', '3 14+2 green 0/1', '3 16+2 pink 0/1', '3 18+2 purple 0/1',
+  '4 8+2 pink 0/1', '4 10+2 pink 0/1', '4 14+2 grey 0/2', '4 14+2 grey 1/2', '4 16+2 grey 0/1',
+].sort();
+
+describe('official timetable detection', () => {
+  it('finds every lesson block, colour and parallel lane', () => {
+    const r = fixture('Bc1JCF1');
+    const g = detectGeometry(r)!;
+    expect(g.left).toBe(14);
+    expect(g.bottom).toBe(307);
+    expect(summary(detectBlocks(r, g))).toEqual(JCF1);
+  });
+
+  it('separates adjacent blocks of the same colour', () => {
+    const r = fixture('Bc1JCF1');
+    const wednesdayGreen = detectBlocks(r, detectGeometry(r)!).filter((b) => b.day === 2 && b.color === 'green');
+    expect(wednesdayGreen.map((b) => [b.start, b.duration])).toEqual([[8, 2], [10, 2]]);
+  });
+
+  it('handles overlapping blocks with different lengths', () => {
+    const r = fixture('Bc2FI_IPL1');
+    const blocks = summary(detectBlocks(r, detectGeometry(r)!));
+    expect(blocks).toContain('2 16+3 orange 0/2'); // ZEL1
+    expect(blocks).toContain('2 16+4 pink 1/2'); // FPRA1
+    expect(blocks).toContain('1 8+2 red 0/2'); // SPLAcv
+    expect(blocks).toContain('1 8+2 pink 1/2'); // SMF
+  });
+
+  it('works on zoomed, cropped screenshots', () => {
+    const shot = screenshot(fixture('Bc1JCF1'), 2, 37, 23);
+    const g = detectGeometry(shot)!;
+    expect(g.s).toBeCloseTo(2, 1);
+    expect(summary(detectBlocks(shot, g))).toEqual(JCF1);
+  });
+
+  it('rejects images that are not timetables', () => {
+    const blank: Raster = { width: 300, height: 200, data: new Uint8Array(300 * 200 * 4).fill(255) };
+    expect(detectGeometry(blank)).toBeNull();
+  });
+
+  it('splits the strip into lecturer (left) and room (right)', () => {
+    const r = fixture('Bc1JCF1');
+    const g = detectGeometry(r)!;
+    const mech = detectBlocks(r, g).find((b) => b.day === 0 && b.start === 8)!;
+    const { lecturer, room } = splitMetaStrip(r, mech.metaRect, g.s);
+    expect(lecturer!.x).toBeLessThan(mech.metaRect.x + 10);
+    expect(room!.x + room!.w).toBeGreaterThan(mech.metaRect.x + mech.metaRect.w - 10);
+    expect(lecturer!.x + lecturer!.w).toBeLessThan(room!.x);
+  });
+});
+
+describe('recognizeOfficial', () => {
+  it('builds lessons from detected blocks and OCR text', async () => {
+    const engine: OcrEngine = {
+      read: async (_img, kind) => ({ text: { title: 'MECHey', lecturer: 'Bren', room: '8-103', spec: 'JCF1' }[kind], confidence: 90 }),
+    };
+    const progress: number[] = [];
+    const result = (await recognizeOfficial(fixture('Bc1JCF1'), engine, (done) => progress.push(done)))!;
+    expect(result.specText).toBe('JCF1');
+    expect(result.lessons).toHaveLength(JCF1.length);
+    expect(result.lessons[0]).toMatchObject({ day: 0, start: 8, duration: 2, color: 'pink', subject: 'MECHcv', lecturer: 'Bren', room: 'B-103' });
+    expect(progress.at(-1)).toBe(JCF1.length + 1);
+  });
+});
+
+describe('pickReading', () => {
+  it('prefers what several zooms agree on over one confident outlier', () => {
+    expect(pickReading([{ text: '1', confidence: 96 }, { text: 'CH1', confidence: 85 }, { text: 'CH1', confidence: 92 }, { text: 'cl', confidence: 69 }])).toBe('CH1');
+  });
+
+  it('falls back to the most confident reading', () => {
+    expect(pickReading([{ text: 'D', confidence: 66 }, { text: 'DIM1cv', confidence: 86 }, { text: '', confidence: 0 }])).toBe('DIM1cv');
+    expect(pickReading([{ text: ' ', confidence: 90 }])).toBe('');
+  });
+});
+
+describe('OCR clean-up', () => {
+  it('fixes common misreads', () => {
+    expect(cleanTitle(' MAN.rez ')).toBe('MAN.rez');
+    expect(cleanTitle('LALey')).toBe('LALcv');
+    expect(cleanTitle('MANCY')).toBe('MANcv');
+    expect(cleanTitle('AMScv')).toBe('AMScv');
+    expect(cleanRoom('8-103')).toBe('B-103');
+    expect(cleanRoom('1-201')).toBe('T-201');
+    expect(cleanRoom('klff-121')).toBe('KLFF-121');
+    expect(cleanRoom('--')).toBe('');
+    expect(cleanLecturer(' I. Jex ')).toBe('I. Jex');
+    expect(cleanLecturer('--')).toBe('');
+  });
+});
+
+describe('import helpers', () => {
+  it('restores our own PNG and PDF exports exactly', () => {
+    const s = createSchedule('Bc2JI_JR1');
+    s.lessons.push(normalizeLesson({ day: 3, start: 9, duration: 3, subject: 'Řešené úlohy', room: 'T-105', lecturer: 'Kuchař', color: 'teal' }));
+    const payload = encodePayload(s);
+    const tinyPng = Uint8Array.from(
+      atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='),
+      (c) => c.charCodeAt(0),
+    );
+    const pdf = buildPdf({ width: 1, height: 1, deflated: new Uint8Array([120, 156, 99, 0, 0, 0, 1, 0, 1]) }, { title: 'x', custom: { [EMBED_KEY]: payload } });
+    for (const file of [addTextChunk(tinyPng, EMBED_KEY, payload), pdf]) {
+      const back = readEmbeddedSchedule(file)!;
+      expect(back.specId).toBe('Bc2JI_JR1');
+      expect(back.lessons[0]).toMatchObject({ subject: 'Řešené úlohy', lecturer: 'Kuchař', start: 9, duration: 3, color: 'teal' });
+    }
+    expect(readEmbeddedSchedule(tinyPng)).toBeNull();
+  });
+
+  it('guesses the specialization ID from the file name or corner text', () => {
+    expect(guessSpecId('Bc1JCF1.png', 'JCF1')).toBe('Bc1JCF1');
+    expect(guessSpecId('Bc1JI_JR2 (1).pdf', '')).toBe('Bc1JI_JR2');
+    expect(guessSpecId('screenshot.png', 'JCF1')).toBe('JCF1'); // ambiguous year
+    expect(guessSpecId('screenshot.png', 'RT')).toBe('RT');
+    expect(guessSpecId('x.png', '')).toBe('');
+  });
+});
