@@ -173,7 +173,11 @@ export function classifyColor(rgb: Rgb, tolerance = 20): string | null {
       bestId = ref.id;
     }
   }
-  if (tolerance === 20) classifyCache.set(key, bestId);
+  if (tolerance === 20) {
+    // Bounded: a large screenshot can contain many distinct colours.
+    if (classifyCache.size >= 200_000) classifyCache.clear();
+    classifyCache.set(key, bestId);
+  }
   return bestId;
 }
 
