@@ -9,6 +9,7 @@ const WHITELIST: Record<TextKind, string> = {
   title: `${LETTERS}${DIGITS}._-`,
   spec: `${LETTERS.slice(0, 26)}${DIGITS}_`,
   lecturer: `${LETTERS}. -`,
+  // Upper case only reads best; snapping restores codes like "Dc-P4".
   room: `${LETTERS.slice(0, 26)}${DIGITS}-`,
 };
 
