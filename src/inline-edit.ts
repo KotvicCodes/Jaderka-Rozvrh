@@ -7,8 +7,11 @@ export interface InlineEditOptions {
   placeholder?: string;
   maxLength?: number;
   className?: string;
-  /** Grow the field with its text (for short labels such as tab names). */
-  autoSize?: boolean;
+  /**
+   * Start exactly as large as `target` (so nothing around it moves) and only
+   * grow when the text no longer fits. For short labels such as tab names.
+   */
+  keepSize?: boolean;
   /** Called with the trimmed text on Enter or when the field loses focus. */
   onCommit(value: string): void;
   /** Called on Escape; the original element is already back in place. */
@@ -31,10 +34,25 @@ export function startInlineEdit(target: HTMLElement, options: InlineEditOptions)
     autocomplete: 'off',
     spellcheck: false,
   });
-  if (options.autoSize) {
-    const fit = () => (input.size = Math.max(8, input.value.length + 1));
-    fit();
+  if (options.keepSize) {
+    const box = target.getBoundingClientRect();
+    input.style.width = `${box.width}px`;
+    input.style.height = `${box.height}px`;
+    const ctx = document.createElement('canvas').getContext('2d');
+    const fit = () => {
+      if (!ctx) return;
+      const css = getComputedStyle(input);
+      ctx.font = css.font;
+      const chrome = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce(
+        (sum, k) => sum + (parseFloat(css[k as keyof CSSStyleDeclaration] as string) || 0),
+        0,
+      );
+      const needed = ctx.measureText(input.value).width + chrome;
+      // Grow (with 2 px for the caret) only once the text no longer fits.
+      input.style.width = `${needed > box.width + 0.5 ? Math.ceil(needed + 2) : box.width}px`;
+    };
     input.addEventListener('input', fit);
+    queueMicrotask(fit);
   }
   let done = false;
   const finish = (save: boolean) => {

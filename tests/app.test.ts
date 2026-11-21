@@ -56,6 +56,14 @@ describe('timetable tabs', () => {
     expect(loadState().schedules[0]!.name).toBe('');
   });
 
+  it('starts the rename field exactly as large as the tab, so nothing moves', () => {
+    const tab = tabs(root)[0]!;
+    tab.getBoundingClientRect = () => ({ width: 222.8, height: 36.4 }) as DOMRect;
+    tab.dispatchEvent(new MouseEvent('click', { detail: 2, bubbles: true }));
+    const input = root.querySelector<HTMLInputElement>('input.tab-input')!;
+    expect([input.style.width, input.style.height]).toEqual(['222.8px', '36.4px']);
+  });
+
   it('renames with F2 from the keyboard', () => {
     tabs(root)[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }));
     typeAndPress(root.querySelector<HTMLInputElement>('input.tab-input')!, 'LS 2027', 'Enter');
@@ -82,5 +90,27 @@ describe('timetable ID in the corner', () => {
     typeAndPress(root.querySelector<HTMLInputElement>('input.corner-input')!, 'Můj rozvrh', 'Enter');
     expect(root.querySelector('.corner-edit')?.textContent).toBe('Můj rozvrh');
     expect(loadState().schedules[0]!.specId).toBe('Můj rozvrh');
+  });
+});
+
+describe('toolbar and header', () => {
+  it('has the download, import and delete buttons in that order, and no add button', () => {
+    const root = setup();
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('.toolbar-actions button')].map((b) => b.textContent);
+    expect(buttons).toEqual(['Stáhnout PNG', 'Stáhnout PDF', 'Importovat', 'Smazat rozvrh']);
+  });
+
+  it('shows no subtitle or hint, but credits the author and links bug reports to the repo', () => {
+    const root = setup();
+    expect(root.querySelector('.topbar strong')?.textContent).toBe('Jaderka Rozvrh');
+    const credit = root.querySelector<HTMLAnchorElement>('.topbar-credit')!;
+    expect(credit.textContent).toBe('Vytvořil Kotvič');
+    expect(credit.href).toBe('https://github.com/KotvicCodes');
+    expect(root.querySelector('.topbar')?.textContent).toBe('Jaderka RozvrhVytvořil Kotvič');
+    expect(root.querySelector('.hint')).toBeNull();
+    const bug = root.querySelector<HTMLAnchorElement>('.site-footer a')!;
+    expect(bug.textContent).toBe('Našel/našla jsi bug? Oprav ho!');
+    expect(bug.href).toBe('https://github.com/KotvicCodes/Jaderka-Rozvrh');
+    expect([credit.rel, bug.rel]).toEqual(['noopener', 'noopener']);
   });
 });

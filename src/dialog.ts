@@ -90,6 +90,7 @@ export function openLessonDialog(draft: LessonDraft, existing?: Lesson): Promise
       dialog.close();
     });
     cancelBtn.addEventListener('click', () => dialog.close());
+    closeOnBackdropClick(dialog);
     deleteBtn?.addEventListener('click', () => {
       if (existing) result = { action: 'delete', id: existing.id };
       dialog.close();
@@ -102,5 +103,25 @@ export function openLessonDialog(draft: LessonDraft, existing?: Lesson): Promise
     document.body.append(dialog);
     dialog.showModal();
     subject.focus();
+  });
+}
+
+/**
+ * Closes a modal dialog (as a cancel) when the user clicks outside it, on
+ * the backdrop. The press must also start outside, so selecting text in a
+ * field and releasing the mouse past the edge does not close it.
+ */
+export function closeOnBackdropClick(dialog: HTMLDialogElement): void {
+  const outside = (e: MouseEvent) => {
+    const r = dialog.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
+  let pressedOutside = false;
+  dialog.addEventListener('pointerdown', (e) => {
+    pressedOutside = e.target === dialog && outside(e);
+  });
+  dialog.addEventListener('click', (e) => {
+    if (pressedOutside && e.target === dialog && outside(e)) dialog.close();
+    pressedOutside = false;
   });
 }
