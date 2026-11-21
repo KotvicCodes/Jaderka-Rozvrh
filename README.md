@@ -12,7 +12,7 @@ download it as a PDF.
 - Each lesson has a subject, classroom, lecturer, duration and colour.
 - Lessons always start on a whole hour (10:00, 11:00, …) and end by 20:00.
 - Colours follow the official scheme: one colour per department (katedra), labelled with its abbreviation (KM, KF, KHVJ, KIPL, KLFF, KMAT, KJCH, KDAIZ, KJR, KSI).
-- Each schedule has a specialization ID (e.g. `Bc1JCF1`), with suggestions for all published IDs.
+- Each schedule belongs to a study program (obor) and kruh, picked from the published bachelor programs; the timetable shows them like the official one (`JCF1`, or `FI_IPL` for a program with a single kruh), without the year.
 - Overlapping (parallel) lessons are stacked, as on the official timetable.
 - Drag and drop lessons to another day or hour (snaps to whole hours); Alt + arrow keys do the same from the keyboard.
 - Download as **PDF** (A4 landscape) or **PNG**, drawn like the official timetable.

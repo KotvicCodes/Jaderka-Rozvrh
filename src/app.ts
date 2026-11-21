@@ -1,4 +1,4 @@
-import { DEFAULT_COLOR_ID, FIRST_HOUR, KNOWN_SPECS } from './config';
+import { DEFAULT_COLOR_ID, FIRST_HOUR, PROGRAMS, formatSpecId, parseSpecId } from './config';
 import { openLessonDialog } from './dialog';
 import { h } from './dom';
 import { downloadPdf, downloadPng } from './export';
@@ -115,19 +115,34 @@ export class App {
       this.render();
     });
 
-    const specInput = h('input', {
-      list: 'spec-ids',
-      value: active.specId,
-      maxlength: 80,
-      placeholder: 'např. Bc1JCF1',
-      autocomplete: 'off',
-      spellcheck: false,
-    });
-    const specName = h('span', { class: 'spec-name' }, KNOWN_SPECS.find((s) => s.id === active.specId)?.name ?? '');
-    specInput.addEventListener('change', () => {
-      active.specId = specInput.value.trim().slice(0, 80);
-      this.commit('ID zaměření uloženo.');
-    });
+    // Obor + kruh build the ID shown on the timetable ("JCF1"). An ID that
+    // matches no known program (older or OCR-read) is kept as its own option.
+    const parsed = parseSpecId(active.specId);
+    const programSelect = h(
+      'select',
+      {},
+      h('option', { value: '', selected: !active.specId }, '— vyber obor —'),
+      ...(active.specId && !parsed ? [h('option', { value: CUSTOM_SPEC, selected: true }, active.specId)] : []),
+      ...PROGRAMS.map((p) => h('option', { value: p.code, selected: p === parsed?.program }, p.name)),
+    );
+    const groups = parsed?.program.groups ?? 0;
+    const groupSelect = h(
+      'select',
+      { disabled: groups < 2 },
+      ...(groups
+        ? Array.from({ length: groups }, (_, i) => h('option', { value: i + 1, selected: i + 1 === parsed?.group }, String(i + 1)))
+        : [h('option', { value: '' }, '–')]),
+    );
+    const saveSpec = () => {
+      if (programSelect.value === CUSTOM_SPEC) return;
+      const program = PROGRAMS.find((p) => p.code === programSelect.value);
+      // Keep the kruh when switching programs if the new one has it too.
+      const group = Math.min(Number(groupSelect.value) || 1, program?.groups ?? 1);
+      active.specId = program ? formatSpecId(program, group) : '';
+      this.commit('Obor uložen.');
+    };
+    programSelect.addEventListener('change', saveSpec);
+    groupSelect.addEventListener('change', saveSpec);
 
     const newBtn = h('button', { type: 'button', class: 'btn' }, 'Nový rozvrh');
     newBtn.addEventListener('click', () => {
@@ -166,9 +181,8 @@ export class App {
 
     this.toolbar.replaceChildren(
       h('label', { class: 'toolbar-field' }, h('span', {}, 'Rozvrh'), picker),
-      h('label', { class: 'toolbar-field' }, h('span', {}, 'ID zaměření'), specInput),
-      specName,
-      h('datalist', { id: 'spec-ids' }, ...KNOWN_SPECS.map((s) => h('option', { value: s.id }, s.name))),
+      h('label', { class: 'toolbar-field' }, h('span', {}, 'Obor'), programSelect),
+      h('label', { class: 'toolbar-field toolbar-field--narrow' }, h('span', {}, 'Kruh'), groupSelect),
       h('span', { class: 'spacer' }),
       newBtn,
       deleteBtn,
@@ -232,6 +246,9 @@ export class App {
     }
   }
 }
+
+/** Value of the Obor option holding an ID that matches no known program. */
+const CUSTOM_SPEC = '__custom__';
 
 function isImportable(file: File): boolean {
   return file.type === 'application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name);

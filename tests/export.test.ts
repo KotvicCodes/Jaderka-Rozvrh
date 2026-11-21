@@ -25,7 +25,7 @@ describe('embedded payload', () => {
   it('round-trips a schedule including Czech text, with fresh IDs', () => {
     const s = sample();
     const back = decodePayload(encodePayload(s))!;
-    expect(back.specId).toBe('Bc1JCF1');
+    expect(back.specId).toBe('JCF1');
     expect(back.lessons.map((l) => l.lecturer)).toContain('Brenčík');
     expect(back.lessons.map(({ id: _id, ...rest }) => rest)).toEqual(s.lessons.map(({ id: _id, ...rest }) => rest));
     expect(back.id).not.toBe(s.id);
@@ -100,7 +100,7 @@ describe('export layout', () => {
   });
 
   it('builds safe file names', () => {
-    expect(exportFileName(createSchedule('Bc1JI_JR2'), 'pdf')).toBe('rozvrh-Bc1JI_JR2.pdf');
+    expect(exportFileName(createSchedule('Bc1JI_JR2'), 'pdf')).toBe('rozvrh-JI_JR2.pdf');
     expect(exportFileName(createSchedule('../a b'), 'png')).toBe('rozvrh-a_b.png');
     expect(exportFileName(createSchedule(''), 'pdf')).toBe('rozvrh.pdf');
   });
