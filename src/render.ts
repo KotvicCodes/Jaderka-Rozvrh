@@ -3,19 +3,33 @@ import { formatHour, layoutDay, type Lesson, type Schedule } from './model';
 
 /**
  * Geometry of the exported image, in CSS pixels (scaled up when rasterising).
- * Hour cells are square (hourW = rowH), matching the official images.
+ * Mirrors the board on the page (.board in style.css): square hour cells
+ * (hourW = rowH), 8 px padding, a 32 px header and 36 px right of the grid
+ * for the "20:00" label.
  */
 export const EXPORT = {
-  padX: 16,
+  padX: 8,
   labelW: 120,
   hourW: 64,
   /** Room right of 20:00 for its label (centred on the last line). */
-  rightPad: 40,
+  rightPad: 36,
+  /** 8 px top padding + the 32 px header row. */
   headerH: 40,
   rowH: 64,
   laneMinH: 32,
   bottomPad: 12,
 } as const;
+
+/** Text sizes of the page (rem × 16 px), so the export reads the same. */
+const TEXT = {
+  corner: 13.6,
+  hour: 12.8,
+  day: 13.6,
+  title: 13.6,
+  titleCompact: 10.9,
+  meta: 9.9,
+  metaCompact: 9.3,
+};
 
 export const EXPORT_WIDTH = EXPORT.padX + EXPORT.labelW + HOUR_COUNT * EXPORT.hourW + EXPORT.rightPad;
 
@@ -49,17 +63,19 @@ export function layoutBoard(schedule: Schedule): BoardLayout {
     const placed = layoutDay(schedule.lessons.filter((l) => l.day === day));
     const maxLanes = placed.reduce((m, p) => Math.max(m, p.lanes), 1);
     const rowH = Math.max(EXPORT.rowH, maxLanes * EXPORT.laneMinH);
-    rows.push({ day, x: EXPORT.padX, y, w: EXPORT_WIDTH - EXPORT.padX - EXPORT.rightPad / 2, h: rowH });
+    rows.push({ day, x: EXPORT.padX, y, w: EXPORT_WIDTH - EXPORT.padX - EXPORT.rightPad, h: rowH });
     for (const p of placed) {
       const laneH = rowH / p.lanes;
       lessons.push({
         lesson: p.lesson,
         compact: p.lanes > 1,
+        // Like on the page: a block fills its cells, so neighbouring
+        // lessons touch and a lesson spans the full row (below its line).
         rect: {
-          x: hourX(p.lesson.start) + 1,
-          y: y + p.lane * laneH + 2,
-          w: hourX(p.lesson.start + p.lesson.duration) - hourX(p.lesson.start) - 2,
-          h: laneH - 4,
+          x: hourX(p.lesson.start),
+          y: y + p.lane * laneH + 1,
+          w: hourX(p.lesson.start + p.lesson.duration) - hourX(p.lesson.start),
+          h: laneH - 1,
         },
       });
     }
@@ -87,21 +103,26 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxW: number): str
 
 function drawLesson(ctx: CanvasRenderingContext2D, lesson: Lesson, r: Rect, compact: boolean): void {
   const color = paletteColor(lesson.color);
-  const metaH = compact ? 12 : 17;
+  const border = 2;
+  const metaSize = compact ? TEXT.metaCompact : TEXT.meta;
+  // White strip for lecturer and room: one line (line-height 1.25 / 1.1) + 2 px padding, inside the border.
+  const metaH = Math.round(metaSize * (compact ? 1.1 : 1.25) + 2);
+  const inner = { x: r.x + border, y: r.y + border, w: r.w - 2 * border, h: r.h - 2 * border };
+
   ctx.fillStyle = color.fill;
   ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(r.x + 2, r.y + r.h - metaH - 1, r.w - 4, metaH - 1);
+  ctx.fillRect(inner.x, inner.y + inner.h - metaH, inner.w, metaH);
   ctx.strokeStyle = color.border;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+  ctx.lineWidth = border;
+  ctx.strokeRect(r.x + border / 2, r.y + border / 2, r.w - border, r.h - border);
 
   ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `bold ${compact ? 11 : 14}px ${FONT}`;
-  const title = fitText(ctx, lesson.subject, r.w - 8);
-  const titleY = r.y + (r.h - metaH) / 2 + 1;
+  ctx.font = `bold ${compact ? TEXT.titleCompact : TEXT.title}px ${FONT}`;
+  const title = fitText(ctx, lesson.subject, inner.w - 8);
+  const titleY = inner.y + (inner.h - metaH) / 2;
   // White halo around the title, as on the official timetable.
   ctx.save();
   ctx.strokeStyle = '#ffffff';
@@ -111,13 +132,13 @@ function drawLesson(ctx: CanvasRenderingContext2D, lesson: Lesson, r: Rect, comp
   ctx.restore();
   ctx.fillText(title, r.x + r.w / 2, titleY);
 
-  ctx.font = `${compact ? 9 : 10}px ${FONT}`;
-  const metaY = r.y + r.h - metaH / 2 - 1;
-  const roomW = Math.min(ctx.measureText(lesson.room).width, r.w / 2 - 6);
+  ctx.font = `${metaSize}px ${FONT}`;
+  const metaY = inner.y + inner.h - metaH / 2;
+  const roomW = Math.min(ctx.measureText(lesson.room).width, inner.w / 2 - 4);
   ctx.textAlign = 'right';
-  ctx.fillText(fitText(ctx, lesson.room, r.w / 2 - 6), r.x + r.w - 5, metaY);
+  ctx.fillText(fitText(ctx, lesson.room, inner.w / 2 - 4), inner.x + inner.w - 4, metaY);
   ctx.textAlign = 'left';
-  ctx.fillText(fitText(ctx, lesson.lecturer, r.w - roomW - 14), r.x + 5, metaY);
+  ctx.fillText(fitText(ctx, lesson.lecturer, inner.w - roomW - 12), inner.x + 4, metaY);
 }
 
 /** Draws the schedule in the style of the official FJFI timetable. */
@@ -130,11 +151,12 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
   ctx.fillStyle = '#000000';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  ctx.font = `bold 13px ${FONT}`;
-  ctx.fillText(fitText(ctx, schedule.specId, EXPORT.labelW - 24), EXPORT.padX, EXPORT.headerH / 2);
-  ctx.font = `12px ${FONT}`;
+  const headerY = 8 + (EXPORT.headerH - 8) / 2;
+  ctx.font = `bold ${TEXT.corner}px ${FONT}`;
+  ctx.fillText(fitText(ctx, schedule.specId, EXPORT.labelW - 20), EXPORT.padX, headerY);
+  ctx.font = `${TEXT.hour}px ${FONT}`;
   ctx.textAlign = 'center';
-  for (let hour = FIRST_HOUR; hour <= LAST_HOUR; hour++) ctx.fillText(formatHour(hour), layout.hourX(hour), EXPORT.headerH / 2);
+  for (let hour = FIRST_HOUR; hour <= LAST_HOUR; hour++) ctx.fillText(formatHour(hour), layout.hourX(hour), headerY);
 
   // Grid lines.
   ctx.strokeStyle = '#dddddd';
@@ -142,7 +164,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
   ctx.beginPath();
   for (let hour = FIRST_HOUR; hour <= LAST_HOUR; hour++) {
     const x = Math.round(layout.hourX(hour)) + 0.5;
-    ctx.moveTo(x, grid.y - 6);
+    ctx.moveTo(x, grid.y);
     ctx.lineTo(x, grid.y + grid.h);
   }
   for (const row of layout.rows) {
@@ -151,12 +173,12 @@ export function drawBoard(ctx: CanvasRenderingContext2D, schedule: Schedule, lay
   }
   const bottom = Math.round(grid.y + grid.h) + 0.5;
   ctx.moveTo(EXPORT.padX, bottom);
-  ctx.lineTo(EXPORT_WIDTH - EXPORT.rightPad / 2, bottom);
+  ctx.lineTo(EXPORT_WIDTH - EXPORT.rightPad, bottom);
   ctx.stroke();
 
   // Day labels.
   ctx.fillStyle = '#000000';
-  ctx.font = `13px ${FONT}`;
+  ctx.font = `${TEXT.day}px ${FONT}`;
   ctx.textAlign = 'left';
   for (const row of layout.rows) ctx.fillText(DAYS[row.day]!, EXPORT.padX, row.y + row.h / 2);
 
