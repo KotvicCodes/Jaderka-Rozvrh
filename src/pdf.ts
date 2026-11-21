@@ -75,7 +75,7 @@ export function buildPdf(image: PdfImage, info: { title: string; custom?: Record
     image.deflated,
   );
   object(5, `<< /Length ${content.length} >>`, content);
-  object(6, `<< /Title ${pdfTextString(info.title)} /Producer (Jaderka Rozvrh)${custom} >>`);
+  object(6, `<< /Title ${pdfTextString(info.title)} /Producer ${pdfTextString('Jaderňácký Rozvrh')}${custom} >>`);
 
   const xref = length;
   push(`xref\n0 7\n0000000000 65535 f \n`);

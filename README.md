@@ -1,4 +1,4 @@
-# Jaderka Rozvrh
+# Jaderňácký Rozvrh
 
 A lightweight web app for FJFI ČVUT ("Jaderka") students to build and edit their
 own timetable, styled after the official schedules at

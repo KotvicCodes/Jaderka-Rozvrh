@@ -26,7 +26,7 @@ export class App {
       h(
         'header',
         { class: 'topbar' },
-        h('strong', {}, 'Jaderka Rozvrh'),
+        h('strong', {}, 'Jaderňácký Rozvrh'),
         h('a', { class: 'topbar-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'Vytvořil Kotvič'),
       ),
       h(
