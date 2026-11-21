@@ -32,6 +32,13 @@ download it as a PDF.
 
 Built with plain TypeScript and [Vite](https://vite.dev); no UI framework.
 
+## Privacy & security
+
+No telemetry, no accounts, no server: timetables live only in your browser, and imported files are processed on
+your device. The app is open source (MIT), and the deployed site is built straight from this repository. Details,
+including the one third-party download (the OCR engine, from a CDN), and how to report a security problem are in
+[SECURITY.md](SECURITY.md).
+
 ## Development
 
 ```sh
