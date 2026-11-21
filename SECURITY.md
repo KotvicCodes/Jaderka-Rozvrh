@@ -25,6 +25,6 @@ Only the latest version (the `main` branch, which is what is deployed) is suppor
 If you find a security problem, for example a way for a crafted file to run code when it is imported:
 
 - If the repository's **Security** tab offers **"Report a vulnerability"**, please use it. The report stays private until it is fixed.
-- Otherwise open an [issue](https://github.com/KotvicCodes/Jaderka-Rozvrh/issues) saying that you found a security problem, **without the details**, and you will be contacted to share them privately.
+- Otherwise open an [issue](https://github.com/KotvicCodes/Jadernacky-Rozvrh/issues) saying that you found a security problem, **without the details**, and you will be contacted to share them privately.
 
 Ordinary bugs are welcome as normal issues or pull requests.
