@@ -183,17 +183,19 @@ describe('import helpers', () => {
     const pdf = buildPdf({ width: 1, height: 1, deflated: new Uint8Array([120, 156, 99, 0, 0, 0, 1, 0, 1]) }, { title: 'x', custom: { [EMBED_KEY]: payload } });
     for (const file of [addTextChunk(tinyPng, EMBED_KEY, payload), pdf]) {
       const back = readEmbeddedSchedule(file)!;
-      expect(back.specId).toBe('Bc2JI_JR1');
+      expect(back.specId).toBe('JI_JR1');
       expect(back.lessons[0]).toMatchObject({ subject: 'Řešené úlohy', lecturer: 'Kuchař', start: 9, duration: 3, color: 'teal' });
     }
     expect(readEmbeddedSchedule(tinyPng)).toBeNull();
   });
 
   it('guesses the specialization ID from the file name or corner text', () => {
-    expect(guessSpecId('Bc1JCF1.png', 'JCF1')).toBe('Bc1JCF1');
-    expect(guessSpecId('Bc1JI_JR2 (1).pdf', '')).toBe('Bc1JI_JR2');
-    expect(guessSpecId('screenshot.png', 'JCF1')).toBe('JCF1'); // ambiguous year
+    expect(guessSpecId('Bc1JCF1.png', 'JCF1')).toBe('JCF1');
+    expect(guessSpecId('Bc1JI_JR2 (1).pdf', '')).toBe('JI_JR2');
+    expect(guessSpecId('Bc2FI_IPL1.png', 'FI_IPL')).toBe('FI_IPL');
+    expect(guessSpecId('screenshot.png', 'JCF1')).toBe('JCF1');
     expect(guessSpecId('screenshot.png', 'RT')).toBe('RT');
+    expect(guessSpecId('report.png', 'Nav1XYZ')).toBe('Nav1XYZ'); // unknown: kept as read
     expect(guessSpecId('x.png', '')).toBe('');
   });
 });

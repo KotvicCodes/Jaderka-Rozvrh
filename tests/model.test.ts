@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_HOUR, LAST_HOUR, PALETTE } from '../src/config';
+import { FIRST_HOUR, LAST_HOUR, PALETTE, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from '../src/config';
 import { layoutDay, maxDuration, normalizeLesson, normalizeSchedule, type Lesson } from '../src/model';
 
 const lesson = (id: string, start: number, duration: number, day = 0): Lesson => ({
@@ -50,9 +50,40 @@ describe('normalizeSchedule', () => {
     expect(normalizeSchedule(null)).toBeNull();
     expect(normalizeSchedule('x')).toBeNull();
     const s = normalizeSchedule({ specId: 'Bc1JCF1', lessons: [{ start: 10.5, duration: 1 }, 'junk', null] });
-    expect(s?.specId).toBe('Bc1JCF1');
+    expect(s?.specId).toBe('JCF1'); // year dropped, as on the official timetable
     expect(s?.lessons).toHaveLength(1);
     expect(s?.lessons[0]?.start).toBe(10);
+  });
+});
+
+describe('program and kruh IDs', () => {
+  it('lists programs alphabetically, with valid codes', () => {
+    const names = PROGRAMS.map((p) => p.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'cs')));
+    for (const p of PROGRAMS) {
+      expect(p.code).toMatch(/^[A-Z_]+$/);
+      expect(p.name).not.toMatch(/kruh|ročník/i);
+      expect(p.groups).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('parses official, short and single-kruh IDs', () => {
+    expect(parseSpecId('Bc1JCF2')).toMatchObject({ program: { code: 'JCF' }, group: 2 });
+    expect(parseSpecId('jcf3')).toMatchObject({ program: { code: 'JCF' }, group: 3 });
+    expect(parseSpecId('FI_IPL')).toMatchObject({ program: { code: 'FI_IPL' }, group: 1 });
+    expect(parseSpecId('Bc2FI_IPL1')).toMatchObject({ program: { code: 'FI_IPL' }, group: 1 });
+    expect(parseSpecId('JCF4')).toBeNull(); // no such kruh
+    expect(parseSpecId('FI')).toBeNull();
+    expect(parseSpecId('')).toBeNull();
+  });
+
+  it('formats the ID like the official timetable corner', () => {
+    const jcf = PROGRAMS.find((p) => p.code === 'JCF')!;
+    const ipl = PROGRAMS.find((p) => p.code === 'FI_IPL')!;
+    expect(formatSpecId(jcf, 1)).toBe('JCF1');
+    expect(formatSpecId(ipl, 1)).toBe('FI_IPL');
+    expect(canonicalSpecId('Bc1JI_JR4')).toBe('JI_JR4');
+    expect(canonicalSpecId(' vlastní ')).toBe('vlastní');
   });
 });
 

@@ -1,4 +1,4 @@
-import { DAYS, DEFAULT_COLOR_ID, FIRST_HOUR, LAST_HOUR, PALETTE } from './config';
+import { DAYS, DEFAULT_COLOR_ID, FIRST_HOUR, LAST_HOUR, PALETTE, canonicalSpecId } from './config';
 
 export interface Lesson {
   id: string;
@@ -16,7 +16,7 @@ export interface Lesson {
 
 export interface Schedule {
   id: string;
-  /** Specialization / study-group ID, e.g. "Bc1JCF1". */
+  /** Program and kruh as shown on the timetable, e.g. "JCF1" (see canonicalSpecId). */
   specId: string;
   lessons: Lesson[];
   updatedAt: number;
@@ -70,7 +70,7 @@ export function normalizeLesson(input: Partial<Lesson> & Record<string, unknown>
 }
 
 export function createSchedule(specId = ''): Schedule {
-  return { id: newId(), specId: cleanText(specId), lessons: [], updatedAt: Date.now() };
+  return { id: newId(), specId: canonicalSpecId(cleanText(specId)), lessons: [], updatedAt: Date.now() };
 }
 
 /** Validates untrusted data (storage, imports) into a schedule, or returns null. */
@@ -84,7 +84,8 @@ export function normalizeSchedule(input: unknown): Schedule | null {
     : [];
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : newId(),
-    specId: cleanText(raw.specId),
+    // Also migrates older IDs that carried the year ("Bc1JCF1" → "JCF1").
+    specId: canonicalSpecId(cleanText(raw.specId)),
     lessons,
     updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now(),
   };

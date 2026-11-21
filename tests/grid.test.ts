@@ -11,7 +11,7 @@ describe('renderGrid', () => {
     expect(slots).toHaveLength(5 * HOUR_COUNT);
     slots[HOUR_COUNT + 2]!.click();
     expect(onSlotClick).toHaveBeenCalledWith(1, 10);
-    expect(grid.querySelector('.corner')?.textContent).toBe('Bc1JCF1');
+    expect(grid.querySelector('.corner')?.textContent).toBe('JCF1');
   });
 
   it('positions lessons by start and duration and shows their details as text', () => {

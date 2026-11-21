@@ -1,4 +1,4 @@
-import { KNOWN_SPECS } from '../config';
+import { canonicalSpecId, parseSpecId } from '../config';
 import { EMBED_KEY, decodePayload } from '../embed';
 import { normalizeSchedule, type Schedule } from '../model';
 import { isPdf, readPdfInfoValue } from '../pdf';
@@ -19,18 +19,16 @@ export function readEmbeddedSchedule(bytes: Uint8Array): Schedule | null {
 }
 
 /**
- * Picks the specialization ID: a known ID in the file name wins (official
+ * Picks the program/kruh ID: a known ID in the file name wins (official
  * files are named e.g. "Bc1JCF1.png"); otherwise the text read from the
- * image's corner (e.g. "JCF1") is matched against known IDs.
+ * image's corner (e.g. "JCF1") is used. Known IDs come back in timetable
+ * form, without the year ("JCF1", "FI_IPL").
  */
 export function guessSpecId(fileName: string, cornerText: string): string {
-  const lower = fileName.toLowerCase();
-  const fromName = [...KNOWN_SPECS].sort((a, b) => b.id.length - a.id.length).find((s) => lower.includes(s.id.toLowerCase()));
-  if (fromName) return fromName.id;
-  const corner = cornerText.trim();
-  if (!corner) return '';
-  const matches = KNOWN_SPECS.filter((s) => s.id.slice(3) === corner || s.id.slice(3) === `${corner}1`);
-  return matches.length === 1 ? matches[0]!.id : corner;
+  for (const m of fileName.matchAll(/bc[1-9][a-z_]+\d*/gi)) {
+    if (parseSpecId(m[0])) return canonicalSpecId(m[0]);
+  }
+  return canonicalSpecId(cornerText);
 }
 
 export interface ImportResult {
