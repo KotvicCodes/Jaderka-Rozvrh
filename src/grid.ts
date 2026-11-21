@@ -1,5 +1,6 @@
 import { DAYS, FIRST_HOUR, HOUR_COUNT, LAST_HOUR, paletteColor } from './config';
 import { h } from './dom';
+import { startInlineEdit } from './inline-edit';
 import { formatHour, layoutDay, type Lesson, type Schedule } from './model';
 
 export interface GridHandlers {
@@ -7,6 +8,8 @@ export interface GridHandlers {
   onLessonClick(lesson: Lesson): void;
   /** Called when a lesson is dragged (or moved with Alt+arrows) to a new slot. */
   onLessonMove(lesson: Lesson, day: number, start: number): void;
+  /** Called with the text typed into the timetable's ID (the top-left corner). */
+  onSpecIdEdit?(value: string): void;
 }
 
 const BASE_ROW_HEIGHT = 64;
@@ -171,6 +174,30 @@ function renderLesson(lesson: Lesson, lane: number, lanes: number, handlers: Gri
   return el;
 }
 
+/** The timetable's ID in the top-left corner; click it to type a new one. */
+function renderCorner(schedule: Schedule, handlers: GridHandlers): HTMLElement {
+  const text = schedule.specId || '—';
+  const onEdit = handlers.onSpecIdEdit;
+  if (!onEdit) return h('div', { class: 'corner', role: 'columnheader' }, text);
+  const button = h(
+    'button',
+    { type: 'button', class: 'corner-edit', title: 'Klikni a napiš vlastní ID rozvrhu', 'aria-label': `ID rozvrhu: ${text}. Upravit` },
+    text,
+  );
+  button.addEventListener('click', () =>
+    startInlineEdit(button, {
+      value: schedule.specId,
+      label: 'ID rozvrhu',
+      placeholder: 'např. FI_PF',
+      className: 'corner-input',
+      onCommit: (value) => {
+        if (value !== schedule.specId) onEdit(value);
+      },
+    }),
+  );
+  return h('div', { class: 'corner', role: 'columnheader' }, button);
+}
+
 export function renderGrid(schedule: Schedule, handlers: GridHandlers): HTMLElement {
   const hourLabels: HTMLElement[] = [];
   for (let hour = FIRST_HOUR; hour <= LAST_HOUR; hour++) {
@@ -183,7 +210,7 @@ export function renderGrid(schedule: Schedule, handlers: GridHandlers): HTMLElem
     h(
       'div',
       { class: 'board-head', role: 'row' },
-      h('div', { class: 'corner', role: 'columnheader' }, schedule.specId || '—'),
+      renderCorner(schedule, handlers),
       h('div', { class: 'hours', 'aria-hidden': 'true' }, ...hourLabels),
     ),
   );

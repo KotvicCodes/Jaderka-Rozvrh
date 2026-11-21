@@ -16,6 +16,8 @@ export interface Lesson {
 
 export interface Schedule {
   id: string;
+  /** User's name for the timetable, e.g. "ZS 2026" (may be empty). */
+  name: string;
   /** Program and kruh as shown on the timetable, e.g. "JCF1" (see canonicalSpecId). */
   specId: string;
   lessons: Lesson[];
@@ -39,7 +41,7 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
-function cleanText(value: unknown): string {
+export function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim().slice(0, MAX_TEXT) : '';
 }
 
@@ -69,8 +71,13 @@ export function normalizeLesson(input: Partial<Lesson> & Record<string, unknown>
   };
 }
 
-export function createSchedule(specId = ''): Schedule {
-  return { id: newId(), specId: canonicalSpecId(cleanText(specId)), lessons: [], updatedAt: Date.now() };
+export function createSchedule(specId = '', name = ''): Schedule {
+  return { id: newId(), name: cleanText(name), specId: canonicalSpecId(cleanText(specId)), lessons: [], updatedAt: Date.now() };
+}
+
+/** Name shown for a schedule: its own name, else its ID, else "Rozvrh N". */
+export function scheduleLabel(schedule: Schedule, index: number): string {
+  return schedule.name || schedule.specId || `Rozvrh ${index + 1}`;
 }
 
 /** Validates untrusted data (storage, imports) into a schedule, or returns null. */
@@ -84,6 +91,7 @@ export function normalizeSchedule(input: unknown): Schedule | null {
     : [];
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : newId(),
+    name: cleanText(raw.name),
     // Also migrates older IDs that carried the year ("Bc1JCF1" → "JCF1").
     specId: canonicalSpecId(cleanText(raw.specId)),
     lessons,

@@ -1,15 +1,17 @@
-import { DEFAULT_COLOR_ID, FIRST_HOUR, KRUH_OPTIONS, PROGRAMS, formatSpecId, parseSpecId } from './config';
+import { DEFAULT_COLOR_ID, FIRST_HOUR, KRUH_OPTIONS, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from './config';
 import { openLessonDialog } from './dialog';
 import { h } from './dom';
 import { downloadPdf, downloadPng } from './export';
 import { renderGrid } from './grid';
-import { createSchedule, normalizeLesson, type Lesson, type LessonDraft, type Schedule } from './model';
+import { startInlineEdit } from './inline-edit';
+import { cleanText, createSchedule, normalizeLesson, scheduleLabel, type Lesson, type LessonDraft, type Schedule } from './model';
 import { loadState, saveState, type AppState } from './storage';
 
 export class App {
   private state: AppState;
   private readonly root: HTMLElement;
   private readonly boardHost = h('section', { class: 'board-host' });
+  private readonly tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Rozvrhy' });
   private readonly toolbar = h('div', { class: 'toolbar' });
   private readonly status = h('p', { class: 'status', role: 'status', 'aria-live': 'polite' });
 
@@ -21,11 +23,13 @@ export class App {
       h(
         'main',
         { class: 'container' },
+        this.tabs,
         this.toolbar,
         h(
           'p',
           { class: 'hint' },
           'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny přesuneš přetažením (nebo Alt + šipky). Hodiny začínají vždy v celou. ',
+          'Rozvrh přejmenuješ dvojklikem na jeho záložku, ID vlevo nahoře přepíšeš kliknutím. ',
           'Rozvrh z rozvrh.fjfi.cvut.cz (PDF/PNG) nebo dřívější export nahraješ tlačítkem Importovat, vložením (Ctrl+V) nebo přetažením souboru.',
         ),
         this.boardHost,
@@ -97,23 +101,92 @@ export class App {
     this.render();
   }
 
-  private scheduleLabel(schedule: Schedule, index: number): string {
-    return schedule.specId || `Rozvrh ${index + 1}`;
+  /** Last tab click, to spot a double click even if the tab was re-rendered in between. */
+  private lastTabClick = { id: '', at: 0 };
+
+  /** One tab per schedule: click switches, double click (or F2) renames, "+" adds one. */
+  private renderTabs(): void {
+    const active = this.active;
+    const tabs = this.state.schedules.map((s, i) => {
+      const label = scheduleLabel(s, i);
+      const tab = h(
+        'button',
+        {
+          type: 'button',
+          class: 'tab',
+          role: 'tab',
+          'data-schedule-id': s.id,
+          'aria-selected': s.id === active.id ? 'true' : 'false',
+          tabindex: s.id === active.id ? 0 : -1,
+          title: `${label} – dvojklikem přejmenuješ`,
+        },
+        label,
+      );
+      tab.addEventListener('click', (e) => {
+        const now = Date.now();
+        const isDouble = e.detail >= 2 || (this.lastTabClick.id === s.id && now - this.lastTabClick.at < 500);
+        this.lastTabClick = { id: s.id, at: now };
+        if (s.id !== this.state.activeId) {
+          this.state.activeId = s.id;
+          saveState(this.state);
+          this.render();
+        }
+        if (isDouble) this.renameSchedule(s.id);
+      });
+      tab.addEventListener('keydown', (e) => {
+        if (e.key === 'F2') {
+          e.preventDefault();
+          this.renameSchedule(s.id);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          const list = this.state.schedules;
+          const next = list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]!;
+          this.state.activeId = next.id;
+          saveState(this.state);
+          this.render();
+          this.tabFor(next.id)?.focus();
+        }
+      });
+      return tab;
+    });
+
+    const addTab = h('button', { type: 'button', class: 'tab tab-add', title: 'Nový rozvrh', 'aria-label': 'Nový rozvrh' }, '+');
+    addTab.addEventListener('click', () => {
+      const schedule = createSchedule();
+      this.state.schedules.push(schedule);
+      this.state.activeId = schedule.id;
+      this.commit('Vytvořen nový rozvrh. Dvojklikem na záložku ho přejmenuješ.');
+    });
+
+    this.tabs.replaceChildren(...tabs, addTab);
+  }
+
+  private tabFor(id: string): HTMLElement | undefined {
+    return [...this.tabs.querySelectorAll<HTMLElement>('[data-schedule-id]')].find((el) => el.dataset.scheduleId === id);
+  }
+
+  private renameSchedule(id: string): void {
+    const tab = this.tabFor(id);
+    const schedule = this.state.schedules.find((s) => s.id === id);
+    if (!tab || !schedule) return;
+    startInlineEdit(tab, {
+      value: schedule.name || scheduleLabel(schedule, this.state.schedules.indexOf(schedule)),
+      label: 'Název rozvrhu',
+      placeholder: 'např. ZS 2026',
+      className: 'tab-input',
+      autoSize: true,
+      onCommit: (value) => {
+        const name = cleanText(value);
+        // Leaving the default label as it was keeps the schedule unnamed.
+        if (name === schedule.name || (!schedule.name && name === scheduleLabel(schedule, this.state.schedules.indexOf(schedule)))) return;
+        schedule.name = name;
+        this.commit(name ? `Rozvrh přejmenován na „${name}“.` : 'Název rozvrhu smazán.');
+      },
+    });
   }
 
   private renderToolbar(): void {
     const active = this.active;
-
-    const picker = h(
-      'select',
-      { 'aria-label': 'Vybrat rozvrh' },
-      ...this.state.schedules.map((s, i) => h('option', { value: s.id, selected: s.id === active.id }, this.scheduleLabel(s, i))),
-    );
-    picker.addEventListener('change', () => {
-      this.state.activeId = picker.value;
-      saveState(this.state);
-      this.render();
-    });
 
     // Obor + kruh build the ID shown on the timetable ("JCF1"). An ID that
     // matches no known program (older or OCR-read) is kept as its own option.
@@ -144,17 +217,9 @@ export class App {
     programSelect.addEventListener('change', saveSpec);
     groupSelect.addEventListener('change', saveSpec);
 
-    const newBtn = h('button', { type: 'button', class: 'btn' }, 'Nový rozvrh');
-    newBtn.addEventListener('click', () => {
-      const schedule = createSchedule();
-      this.state.schedules.push(schedule);
-      this.state.activeId = schedule.id;
-      this.commit('Vytvořen nový rozvrh.');
-    });
-
     const deleteBtn = h('button', { type: 'button', class: 'btn btn-danger' }, 'Smazat rozvrh');
     deleteBtn.addEventListener('click', () => {
-      const label = this.scheduleLabel(active, this.state.schedules.indexOf(active));
+      const label = scheduleLabel(active, this.state.schedules.indexOf(active));
       if (!confirm(`Opravdu smazat rozvrh „${label}“?`)) return;
       this.state.schedules = this.state.schedules.filter((s) => s.id !== active.id);
       if (this.state.schedules.length === 0) this.state.schedules.push(createSchedule());
@@ -179,28 +244,31 @@ export class App {
     const importBtn = h('button', { type: 'button', class: 'btn' }, 'Importovat');
     importBtn.addEventListener('click', () => fileInput.click());
 
+    // Two rows: the pickers, then all buttons in one row below them (it only
+    // wraps when the screen is too narrow).
     this.toolbar.replaceChildren(
-      h('label', { class: 'toolbar-field' }, h('span', {}, 'Rozvrh'), picker),
-      h('label', { class: 'toolbar-field' }, h('span', {}, 'Obor'), programSelect),
-      h('label', { class: 'toolbar-field toolbar-field--narrow' }, h('span', {}, 'Kruh'), groupSelect),
-      h('span', { class: 'spacer' }),
-      newBtn,
-      deleteBtn,
-      pdfBtn,
-      pngBtn,
-      importBtn,
-      fileInput,
-      addBtn,
+      h(
+        'div',
+        { class: 'toolbar-row' },
+        h('label', { class: 'toolbar-field' }, h('span', {}, 'Obor'), programSelect),
+        h('label', { class: 'toolbar-field toolbar-field--narrow' }, h('span', {}, 'Kruh'), groupSelect),
+      ),
+      h('div', { class: 'toolbar-row toolbar-actions' }, deleteBtn, pdfBtn, pngBtn, importBtn, fileInput, addBtn),
     );
   }
 
   private render(): void {
+    this.renderTabs();
     this.renderToolbar();
     this.boardHost.replaceChildren(
       renderGrid(this.active, {
         onSlotClick: (day, hour) => void this.addLesson(day, hour),
         onLessonClick: (lesson) => void this.editLesson(lesson),
         onLessonMove: (lesson, day, start) => this.moveLesson(lesson, day, start),
+        onSpecIdEdit: (value) => {
+          this.active.specId = canonicalSpecId(cleanText(value));
+          this.commit(this.active.specId ? `ID rozvrhu: ${this.active.specId}` : 'ID rozvrhu smazáno.');
+        },
       }),
     );
   }

@@ -6,7 +6,7 @@ export const EMBED_KEY = 'JaderkaRozvrh';
 interface Payload {
   app: 'jaderka-rozvrh';
   v: 1;
-  schedule: Pick<Schedule, 'specId' | 'lessons'>;
+  schedule: Pick<Schedule, 'specId' | 'lessons'> & { name?: string };
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -29,7 +29,7 @@ export function encodePayload(schedule: Schedule): string {
   const payload: Payload = {
     app: 'jaderka-rozvrh',
     v: 1,
-    schedule: { specId: schedule.specId, lessons: schedule.lessons },
+    schedule: { name: schedule.name, specId: schedule.specId, lessons: schedule.lessons },
   };
   return toBase64(new TextEncoder().encode(JSON.stringify(payload)));
 }
@@ -39,7 +39,7 @@ export function decodePayload(text: string): Schedule | null {
   try {
     const data = JSON.parse(new TextDecoder().decode(fromBase64(text.trim()))) as Partial<Payload>;
     if (data?.app !== 'jaderka-rozvrh' || !data.schedule) return null;
-    const schedule = normalizeSchedule({ specId: data.schedule.specId, lessons: data.schedule.lessons });
+    const schedule = normalizeSchedule({ name: data.schedule.name, specId: data.schedule.specId, lessons: data.schedule.lessons });
     // Imported copies get fresh IDs so they never clash with existing schedules.
     return schedule && normalizeSchedule({ ...schedule, id: undefined, lessons: schedule.lessons.map((l) => ({ ...l, id: undefined })) });
   } catch {

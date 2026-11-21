@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIRST_HOUR, KRUH_OPTIONS, LAST_HOUR, PALETTE, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from '../src/config';
-import { layoutDay, maxDuration, normalizeLesson, normalizeSchedule, type Lesson } from '../src/model';
+import { createSchedule, layoutDay, maxDuration, normalizeLesson, normalizeSchedule, scheduleLabel, type Lesson } from '../src/model';
 
 const lesson = (id: string, start: number, duration: number, day = 0): Lesson => ({
   id,
@@ -53,6 +53,16 @@ describe('normalizeSchedule', () => {
     expect(s?.specId).toBe('JCF1'); // year dropped, as on the official timetable
     expect(s?.lessons).toHaveLength(1);
     expect(s?.lessons[0]?.start).toBe(10);
+  });
+});
+
+describe('schedule names', () => {
+  it('keeps a trimmed name and labels unnamed schedules by ID or position', () => {
+    expect(normalizeSchedule({ name: '  ZS 2026 ', lessons: [] })?.name).toBe('ZS 2026');
+    expect(normalizeSchedule({ lessons: [] })?.name).toBe('');
+    expect(scheduleLabel(createSchedule('JCF1', 'LS 2027'), 0)).toBe('LS 2027');
+    expect(scheduleLabel(createSchedule('JCF1'), 0)).toBe('JCF1');
+    expect(scheduleLabel(createSchedule(), 2)).toBe('Rozvrh 3');
   });
 });
 

@@ -14,7 +14,7 @@ const TINY_PNG = Uint8Array.from(
 );
 
 function sample() {
-  const s = createSchedule('Bc1JCF1');
+  const s = createSchedule('Bc1JCF1', 'ZS 2026');
   s.lessons.push(normalizeLesson({ day: 0, start: 8, duration: 2, subject: 'MECH', room: 'B-103', lecturer: 'Brenčík', color: 'pink' }));
   s.lessons.push(normalizeLesson({ day: 4, start: 14, duration: 2, subject: 'MAM1', color: 'grey' }));
   s.lessons.push(normalizeLesson({ day: 4, start: 14, duration: 2, subject: 'MAM2', color: 'grey' }));
@@ -26,6 +26,7 @@ describe('embedded payload', () => {
     const s = sample();
     const back = decodePayload(encodePayload(s))!;
     expect(back.specId).toBe('JCF1');
+    expect(back.name).toBe('ZS 2026');
     expect(back.lessons.map((l) => l.lecturer)).toContain('Brenčík');
     expect(back.lessons.map(({ id: _id, ...rest }) => rest)).toEqual(s.lessons.map(({ id: _id, ...rest }) => rest));
     expect(back.id).not.toBe(s.id);
