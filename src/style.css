@@ -245,6 +245,8 @@ input.corner-input { width: 100%; margin-left: -4px; padding: 2px 4px; font: inh
 .lesson--compact .lesson-meta { font-size: 0.58rem; line-height: 1.1; }
 
 /* Dialog */
+/* The page behind an open dialog does not scroll. */
+html:has(dialog[open]) { overflow: hidden; }
 .lesson-dialog {
   border: 0;
   border-radius: 10px;
