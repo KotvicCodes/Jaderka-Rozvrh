@@ -110,7 +110,7 @@ describe('toolbar and header', () => {
     expect(root.querySelector('.hint')).toBeNull();
     const bug = root.querySelector<HTMLAnchorElement>('.site-footer a')!;
     expect(bug.textContent).toBe('Našel/našla jsi bug? Oprav ho!');
-    expect(bug.href).toBe('https://github.com/KotvicCodes/Jaderka-Rozvrh');
+    expect(bug.href).toBe('https://github.com/KotvicCodes/Jadernacky-Rozvrh');
     expect([credit.rel, bug.rel]).toEqual(['noopener', 'noopener']);
   });
 });

@@ -9,7 +9,7 @@ import { loadState, saveState, type AppState } from './storage';
 
 /** Author's GitHub profile (header credit) and this project's repository (bug link). */
 const AUTHOR_URL = 'https://github.com/KotvicCodes';
-const REPO_URL = 'https://github.com/KotvicCodes/Jaderka-Rozvrh';
+const REPO_URL = 'https://github.com/KotvicCodes/Jadernacky-Rozvrh';
 
 export class App {
   private state: AppState;
