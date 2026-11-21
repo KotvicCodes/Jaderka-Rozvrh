@@ -84,3 +84,17 @@ describe('timetable ID in the corner', () => {
     expect(loadState().schedules[0]!.specId).toBe('Můj rozvrh');
   });
 });
+
+describe('toolbar and header', () => {
+  it('has the download, import and delete buttons in that order, and no add button', () => {
+    const root = setup();
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('.toolbar-actions button')].map((b) => b.textContent);
+    expect(buttons).toEqual(['Stáhnout PNG', 'Stáhnout PDF', 'Importovat', 'Smazat rozvrh']);
+  });
+
+  it('shows no subtitle and no hint text', () => {
+    const root = setup();
+    expect(root.querySelector('.topbar')?.textContent).toBe('Jaderka Rozvrh');
+    expect(root.querySelector('.hint')).toBeNull();
+  });
+});

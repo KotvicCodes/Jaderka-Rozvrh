@@ -1,4 +1,4 @@
-import { DEFAULT_COLOR_ID, FIRST_HOUR, KRUH_OPTIONS, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from './config';
+import { DEFAULT_COLOR_ID, KRUH_OPTIONS, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from './config';
 import { openLessonDialog } from './dialog';
 import { h } from './dom';
 import { downloadPdf, downloadPng } from './export';
@@ -19,19 +19,12 @@ export class App {
     this.root = root;
     this.state = loadState();
     this.root.replaceChildren(
-      h('header', { class: 'topbar' }, h('strong', {}, 'Jaderka Rozvrh'), h('span', { class: 'topbar-sub' }, 'vlastní rozvrh pro FJFI')),
+      h('header', { class: 'topbar' }, h('strong', {}, 'Jaderka Rozvrh')),
       h(
         'main',
         { class: 'container' },
         this.tabs,
         this.toolbar,
-        h(
-          'p',
-          { class: 'hint' },
-          'Klikni na volné políčko pro přidání hodiny, na existující hodinu pro úpravu. Hodiny přesuneš přetažením (nebo Alt + šipky). Hodiny začínají vždy v celou. ',
-          'Rozvrh přejmenuješ dvojklikem na jeho záložku, ID vlevo nahoře přepíšeš kliknutím. ',
-          'Rozvrh z rozvrh.fjfi.cvut.cz (PDF/PNG) nebo dřívější export nahraješ tlačítkem Importovat, vložením (Ctrl+V) nebo přetažením souboru.',
-        ),
         this.boardHost,
         this.status,
       ),
@@ -227,8 +220,6 @@ export class App {
       this.commit('Rozvrh smazán.');
     });
 
-    const addBtn = h('button', { type: 'button', class: 'btn btn-primary' }, '+ Přidat hodinu');
-    addBtn.addEventListener('click', () => void this.addLesson(0, FIRST_HOUR));
 
     const pdfBtn = h('button', { type: 'button', class: 'btn' }, 'Stáhnout PDF');
     pdfBtn.addEventListener('click', () => void this.runExport('pdf', pdfBtn));
@@ -253,7 +244,7 @@ export class App {
         h('label', { class: 'toolbar-field' }, h('span', {}, 'Obor'), programSelect),
         h('label', { class: 'toolbar-field toolbar-field--narrow' }, h('span', {}, 'Kruh'), groupSelect),
       ),
-      h('div', { class: 'toolbar-row toolbar-actions' }, deleteBtn, pdfBtn, pngBtn, importBtn, fileInput, addBtn),
+      h('div', { class: 'toolbar-row toolbar-actions' }, pngBtn, pdfBtn, importBtn, fileInput, deleteBtn),
     );
   }
 
