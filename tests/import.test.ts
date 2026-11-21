@@ -192,7 +192,9 @@ describe('import helpers', () => {
   it('guesses the specialization ID from the file name or corner text', () => {
     expect(guessSpecId('Bc1JCF1.png', 'JCF1')).toBe('JCF1');
     expect(guessSpecId('Bc1JI_JR2 (1).pdf', '')).toBe('JI_JR2');
-    expect(guessSpecId('Bc2FI_IPL1.png', 'FI_IPL')).toBe('FI_IPL');
+    expect(guessSpecId('Bc2FI_IPL1.png', 'FI_IPL')).toBe('FI_IPL'); // corner has no kruh
+    expect(guessSpecId('Bc2FI_IPL1.png', '')).toBe('FI_IPL1'); // corner unreadable: keep the file's
+    expect(guessSpecId('Bc1JCF2.png', 'RT')).toBe('JCF2'); // corner misread as another program
     expect(guessSpecId('screenshot.png', 'JCF1')).toBe('JCF1');
     expect(guessSpecId('screenshot.png', 'RT')).toBe('RT');
     expect(guessSpecId('report.png', 'Nav1XYZ')).toBe('Nav1XYZ'); // unknown: kept as read

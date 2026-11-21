@@ -60,41 +60,46 @@ export interface StudyProgram {
   code: string;
   /** Study program (obor / specializace) name, without year or kruh. */
   name: string;
-  /** Number of study groups (kruhy); the most any bachelor year has. */
-  groups: number;
 }
+
+/**
+ * Kruhy offered for every program. Deliberately not per program: how many
+ * kruhy a program has changes from year to year. `null` means no kruh
+ * number in the ID ("FI_IPL").
+ */
+export const KRUH_OPTIONS: readonly (number | null)[] = [null, 1, 2, 3];
 
 /**
  * Bachelor study programs published at rozvrh.fjfi.cvut.cz (years 1–3,
  * official IDs like "Bc1JCF2" = year 1, JCF, kruh 2), sorted by name.
  */
 export const PROGRAMS: readonly StudyProgram[] = [
-  { code: 'AIPV', name: 'Aplikace informatiky v přírodních vědách', groups: 2 },
-  { code: 'AAA', name: 'Aplikovaná algebra a analýza', groups: 2 },
-  { code: 'APIN', name: 'Aplikovaná informatika', groups: 1 },
-  { code: 'AMSM', name: 'Aplikované matematicko-stochastické metody', groups: 1 },
-  { code: 'FI_FPTF', name: 'Fyzikální inženýrství, spec. Fyzika plazmatu a termojaderné fúze', groups: 2 },
-  { code: 'FI_FIM', name: 'Fyzikální inženýrství, spec. Fyzikální inženýrství materiálů', groups: 1 },
-  { code: 'FI_IPL', name: 'Fyzikální inženýrství, spec. Inženýrství pevných látek', groups: 1 },
-  { code: 'FI_LTF', name: 'Fyzikální inženýrství, spec. Laserová technika a fotonika', groups: 1 },
-  { code: 'FI_PF', name: 'Fyzikální inženýrství, spec. Počítačová fyzika', groups: 1 },
-  { code: 'JCF', name: 'Jaderná a částicová fyzika', groups: 3 },
-  { code: 'JCH', name: 'Jaderná chemie', groups: 1 },
-  { code: 'JI_AFIZ', name: 'Jaderné inženýrství, spec. Aplikovaná fyzika ionizujícího záření', groups: 1 },
-  { code: 'JI_JR', name: 'Jaderné inženýrství, spec. Jaderné reaktory', groups: 4 },
-  { code: 'JI_RZP', name: 'Jaderné inženýrství, spec. Radioaktivita v životním prostředí', groups: 1 },
-  { code: 'KT', name: 'Kvantové technologie', groups: 1 },
-  { code: 'MI_MF', name: 'Matematické inženýrství, spec. Matematická fyzika', groups: 1 },
-  { code: 'MI_MINF', name: 'Matematické inženýrství, spec. Matematická informatika', groups: 1 },
-  { code: 'MI_MM', name: 'Matematické inženýrství, spec. Matematické modelování', groups: 1 },
-  { code: 'RT', name: 'Radiologická technika', groups: 1 },
-  { code: 'VJZP', name: 'Vyřazování jaderných zařízení z provozu', groups: 1 },
+  { code: 'AIPV', name: 'Aplikace informatiky v přírodních vědách' },
+  { code: 'AAA', name: 'Aplikovaná algebra a analýza' },
+  { code: 'APIN', name: 'Aplikovaná informatika' },
+  { code: 'AMSM', name: 'Aplikované matematicko-stochastické metody' },
+  { code: 'FI_FPTF', name: 'Fyzikální inženýrství, spec. Fyzika plazmatu a termojaderné fúze' },
+  { code: 'FI_FIM', name: 'Fyzikální inženýrství, spec. Fyzikální inženýrství materiálů' },
+  { code: 'FI_IPL', name: 'Fyzikální inženýrství, spec. Inženýrství pevných látek' },
+  { code: 'FI_LTF', name: 'Fyzikální inženýrství, spec. Laserová technika a fotonika' },
+  { code: 'FI_PF', name: 'Fyzikální inženýrství, spec. Počítačová fyzika' },
+  { code: 'JCF', name: 'Jaderná a částicová fyzika' },
+  { code: 'JCH', name: 'Jaderná chemie' },
+  { code: 'JI_AFIZ', name: 'Jaderné inženýrství, spec. Aplikovaná fyzika ionizujícího záření' },
+  { code: 'JI_JR', name: 'Jaderné inženýrství, spec. Jaderné reaktory' },
+  { code: 'JI_RZP', name: 'Jaderné inženýrství, spec. Radioaktivita v životním prostředí' },
+  { code: 'KT', name: 'Kvantové technologie' },
+  { code: 'MI_MF', name: 'Matematické inženýrství, spec. Matematická fyzika' },
+  { code: 'MI_MINF', name: 'Matematické inženýrství, spec. Matematická informatika' },
+  { code: 'MI_MM', name: 'Matematické inženýrství, spec. Matematické modelování' },
+  { code: 'RT', name: 'Radiologická technika' },
+  { code: 'VJZP', name: 'Vyřazování jaderných zařízení z provozu' },
 ];
 
 export interface ParsedSpec {
   program: StudyProgram;
-  /** Kruh, 1-based. */
-  group: number;
+  /** Kruh, 1-based, or null when the ID has no kruh number. */
+  group: number | null;
 }
 
 /**
@@ -106,17 +111,16 @@ export function parseSpecId(raw: string): ParsedSpec | null {
   if (!m) return null;
   const program = PROGRAMS.find((p) => p.code.toLowerCase() === m[1]!.toLowerCase());
   if (!program) return null;
-  const group = m[2] ? Number(m[2]) : 1;
-  return group >= 1 && group <= program.groups ? { program, group } : null;
+  const group = m[2] ? Number(m[2]) : null;
+  return group === null || group >= 1 ? { program, group } : null;
 }
 
 /**
  * The ID shown on the timetable, as on the official one: the program code,
- * followed by the kruh only when the program has more than one ("JCF1",
- * but "FI_IPL"). No year.
+ * followed by the kruh if one is set ("JCF1", "FI_IPL"). No year.
  */
-export function formatSpecId(program: StudyProgram, group: number): string {
-  return program.groups > 1 ? `${program.code}${group}` : program.code;
+export function formatSpecId(program: StudyProgram, group: number | null): string {
+  return group === null ? program.code : `${program.code}${group}`;
 }
 
 /** Rewrites a known ID to its timetable form; anything else is kept as typed. */

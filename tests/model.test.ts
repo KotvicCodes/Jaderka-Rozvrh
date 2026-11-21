@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_HOUR, LAST_HOUR, PALETTE, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from '../src/config';
+import { FIRST_HOUR, KRUH_OPTIONS, LAST_HOUR, PALETTE, PROGRAMS, canonicalSpecId, formatSpecId, parseSpecId } from '../src/config';
 import { layoutDay, maxDuration, normalizeLesson, normalizeSchedule, type Lesson } from '../src/model';
 
 const lesson = (id: string, start: number, duration: number, day = 0): Lesson => ({
@@ -63,16 +63,22 @@ describe('program and kruh IDs', () => {
     for (const p of PROGRAMS) {
       expect(p.code).toMatch(/^[A-Z_]+$/);
       expect(p.name).not.toMatch(/kruh|ročník/i);
-      expect(p.groups).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it('parses official, short and single-kruh IDs', () => {
+  it('offers the same kruhy for every program, including none', () => {
+    expect(KRUH_OPTIONS).toEqual([null, 1, 2, 3]);
+  });
+
+  it('parses official, short and kruh-less IDs', () => {
     expect(parseSpecId('Bc1JCF2')).toMatchObject({ program: { code: 'JCF' }, group: 2 });
     expect(parseSpecId('jcf3')).toMatchObject({ program: { code: 'JCF' }, group: 3 });
-    expect(parseSpecId('FI_IPL')).toMatchObject({ program: { code: 'FI_IPL' }, group: 1 });
+    expect(parseSpecId('FI_IPL')).toMatchObject({ program: { code: 'FI_IPL' }, group: null });
     expect(parseSpecId('Bc2FI_IPL1')).toMatchObject({ program: { code: 'FI_IPL' }, group: 1 });
-    expect(parseSpecId('JCF4')).toBeNull(); // no such kruh
+    // Kruh counts are not hardcoded per program.
+    expect(parseSpecId('RT2')).toMatchObject({ program: { code: 'RT' }, group: 2 });
+    expect(parseSpecId('JI_JR4')).toMatchObject({ program: { code: 'JI_JR' }, group: 4 });
+    expect(parseSpecId('JCF0')).toBeNull();
     expect(parseSpecId('FI')).toBeNull();
     expect(parseSpecId('')).toBeNull();
   });
@@ -81,8 +87,11 @@ describe('program and kruh IDs', () => {
     const jcf = PROGRAMS.find((p) => p.code === 'JCF')!;
     const ipl = PROGRAMS.find((p) => p.code === 'FI_IPL')!;
     expect(formatSpecId(jcf, 1)).toBe('JCF1');
-    expect(formatSpecId(ipl, 1)).toBe('FI_IPL');
+    expect(formatSpecId(jcf, null)).toBe('JCF');
+    expect(formatSpecId(ipl, null)).toBe('FI_IPL');
+    expect(formatSpecId(ipl, 2)).toBe('FI_IPL2');
     expect(canonicalSpecId('Bc1JI_JR4')).toBe('JI_JR4');
+    expect(canonicalSpecId('FI_IPL')).toBe('FI_IPL');
     expect(canonicalSpecId(' vlastní ')).toBe('vlastní');
   });
 });

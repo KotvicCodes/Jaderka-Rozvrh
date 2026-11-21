@@ -1,4 +1,4 @@
-import { DEFAULT_COLOR_ID, FIRST_HOUR, PROGRAMS, formatSpecId, parseSpecId } from './config';
+import { DEFAULT_COLOR_ID, FIRST_HOUR, KRUH_OPTIONS, PROGRAMS, formatSpecId, parseSpecId } from './config';
 import { openLessonDialog } from './dialog';
 import { h } from './dom';
 import { downloadPdf, downloadPng } from './export';
@@ -125,19 +125,19 @@ export class App {
       ...(active.specId && !parsed ? [h('option', { value: CUSTOM_SPEC, selected: true }, active.specId)] : []),
       ...PROGRAMS.map((p) => h('option', { value: p.code, selected: p === parsed?.program }, p.name)),
     );
-    const groups = parsed?.program.groups ?? 0;
+    // Kruh is the same choice for every program (counts change by year);
+    // "–" leaves the number out. A kruh outside the list (e.g. an older
+    // "JI_JR4") is kept as an extra option.
+    const kruhs = parsed?.group && !KRUH_OPTIONS.includes(parsed.group) ? [...KRUH_OPTIONS, parsed.group] : KRUH_OPTIONS;
     const groupSelect = h(
       'select',
-      { disabled: groups < 2 },
-      ...(groups
-        ? Array.from({ length: groups }, (_, i) => h('option', { value: i + 1, selected: i + 1 === parsed?.group }, String(i + 1)))
-        : [h('option', { value: '' }, '–')]),
+      { disabled: !parsed },
+      ...kruhs.map((k) => h('option', { value: k ?? '', selected: k === (parsed?.group ?? null) }, k === null ? '–' : String(k))),
     );
     const saveSpec = () => {
       if (programSelect.value === CUSTOM_SPEC) return;
       const program = PROGRAMS.find((p) => p.code === programSelect.value);
-      // Keep the kruh when switching programs if the new one has it too.
-      const group = Math.min(Number(groupSelect.value) || 1, program?.groups ?? 1);
+      const group = groupSelect.value ? Number(groupSelect.value) : null;
       active.specId = program ? formatSpecId(program, group) : '';
       this.commit('Obor uložen.');
     };

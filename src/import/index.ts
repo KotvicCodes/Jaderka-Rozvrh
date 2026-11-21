@@ -1,4 +1,4 @@
-import { canonicalSpecId, parseSpecId } from '../config';
+import { canonicalSpecId, formatSpecId, parseSpecId } from '../config';
 import { EMBED_KEY, decodePayload } from '../embed';
 import { normalizeSchedule, type Schedule } from '../model';
 import { isPdf, readPdfInfoValue } from '../pdf';
@@ -19,14 +19,20 @@ export function readEmbeddedSchedule(bytes: Uint8Array): Schedule | null {
 }
 
 /**
- * Picks the program/kruh ID: a known ID in the file name wins (official
- * files are named e.g. "Bc1JCF1.png"); otherwise the text read from the
- * image's corner (e.g. "JCF1") is used. Known IDs come back in timetable
- * form, without the year ("JCF1", "FI_IPL").
+ * Picks the program/kruh ID: a known program in the file name wins (official
+ * files are named e.g. "Bc2FI_IPL1.png"); otherwise the text read from the
+ * image's corner is used. The corner decides the kruh when it names the
+ * same program, because it is what the official timetable shows: "JCF1",
+ * but just "FI_IPL" for a program with one kruh, although that file is named
+ * "…FI_IPL1". Known IDs come back without the year.
  */
 export function guessSpecId(fileName: string, cornerText: string): string {
+  const corner = parseSpecId(cornerText);
   for (const m of fileName.matchAll(/bc[1-9][a-z_]+\d*/gi)) {
-    if (parseSpecId(m[0])) return canonicalSpecId(m[0]);
+    const fromName = parseSpecId(m[0]);
+    if (!fromName) continue;
+    const group = corner?.program === fromName.program ? corner.group : fromName.group;
+    return formatSpecId(fromName.program, group);
   }
   return canonicalSpecId(cornerText);
 }
