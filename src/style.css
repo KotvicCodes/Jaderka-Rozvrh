@@ -26,6 +26,9 @@ body { margin: 0; background: var(--bg); }
   padding: 0.7rem 1rem;
 }
 .topbar strong { font-size: 1.1rem; }
+.topbar-credit { margin-left: auto; color: #fff; opacity: 0.85; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+.topbar-credit:hover, .topbar-credit:focus-visible { opacity: 1; text-decoration: underline; }
+.topbar-credit:focus-visible { outline-color: #fff; }
 
 .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
 
@@ -98,6 +101,9 @@ input.tab-input:focus-visible {
 /* Space between the buttons and the timetable. */
 .board-host { margin-top: 2.25rem; }
 .status { min-height: 1.2em; color: var(--muted); font-size: 0.85rem; }
+.site-footer { max-width: 1200px; margin: 0 auto; padding: 0 1rem 1.5rem; font-size: 0.85rem; }
+.site-footer a { color: var(--muted); }
+.site-footer a:hover, .site-footer a:focus-visible { color: var(--brand); }
 
 input, select, button { font: inherit; }
 input, select {

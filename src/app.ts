@@ -7,6 +7,10 @@ import { startInlineEdit } from './inline-edit';
 import { cleanText, createSchedule, normalizeLesson, scheduleLabel, type Lesson, type LessonDraft, type Schedule } from './model';
 import { loadState, saveState, type AppState } from './storage';
 
+/** Author's GitHub profile (header credit) and this project's repository (bug link). */
+const AUTHOR_URL = 'https://github.com/KotvicCodes';
+const REPO_URL = 'https://github.com/KotvicCodes/Jaderka-Rozvrh';
+
 export class App {
   private state: AppState;
   private readonly root: HTMLElement;
@@ -19,7 +23,12 @@ export class App {
     this.root = root;
     this.state = loadState();
     this.root.replaceChildren(
-      h('header', { class: 'topbar' }, h('strong', {}, 'Jaderka Rozvrh')),
+      h(
+        'header',
+        { class: 'topbar' },
+        h('strong', {}, 'Jaderka Rozvrh'),
+        h('a', { class: 'topbar-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'Vytvořil Kotvič'),
+      ),
       h(
         'main',
         { class: 'container' },
@@ -27,6 +36,11 @@ export class App {
         this.toolbar,
         this.boardHost,
         this.status,
+      ),
+      h(
+        'footer',
+        { class: 'site-footer' },
+        h('a', { href: REPO_URL, target: '_blank', rel: 'noopener' }, 'Našel/našla jsi bug? Oprav ho!'),
       ),
     );
     this.render();
@@ -167,7 +181,7 @@ export class App {
       label: 'Název rozvrhu',
       placeholder: 'např. ZS 2026',
       className: 'tab-input',
-      autoSize: true,
+      keepSize: true,
       onCommit: (value) => {
         const name = cleanText(value);
         // Leaving the default label as it was keeps the schedule unnamed.
