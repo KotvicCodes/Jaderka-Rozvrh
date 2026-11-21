@@ -28,8 +28,9 @@ export async function pdfToRaster(bytes: Uint8Array): Promise<Raster> {
   const pdfjs = await import('pdfjs-dist');
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-  const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
+  const task = pdfjs.getDocument({ data: bytes.slice() });
   try {
+    const doc = await task.promise;
     const page = await doc.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const viewport = page.getViewport({ scale: PDF_RENDER_WIDTH / base.width });
@@ -43,6 +44,7 @@ export async function pdfToRaster(bytes: Uint8Array): Promise<Raster> {
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
     return canvasRaster(canvas, ctx);
   } finally {
-    await doc.destroy();
+    // pdf.js 6 frees the document (and its worker) through the loading task.
+    await task.destroy();
   }
 }
